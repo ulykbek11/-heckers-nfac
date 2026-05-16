@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { ToastContainer } from "@/components/ToastContainer";
 import { Sidebar } from "@/components/Sidebar";
+import { AuthModal } from "@/components/AuthModal";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default function RootLayout({
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
           {children}
         </div>
-        <ToastContainer />
+        <AuthModal />
       </body>
     </html>
   );
