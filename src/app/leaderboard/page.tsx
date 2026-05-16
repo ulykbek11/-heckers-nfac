@@ -12,7 +12,8 @@ import { Play } from "lucide-react";
 export default function LeaderboardPage() {
   const router = useRouter();
   const { lang, openAuthModal } = useAppStore();
-  const t = translations[lang].landing;
+  const tSidebar = translations[lang].sidebar;
+  const tLanding = translations[lang].landing;
 
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +43,7 @@ export default function LeaderboardPage() {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <div className="max-w-[800px] mx-auto space-y-6">
-          <h1 className="text-[24px] font-bold">Лидеры</h1>
+          <h1 className="text-[24px] font-bold">{tSidebar.leaderboard}</h1>
 
           {loading ? (
             <div className="text-gray-500 text-center py-10">Загрузка...</div>
@@ -60,10 +61,10 @@ export default function LeaderboardPage() {
           ) : (
             <div className="bg-white border border-[#EBEBEA] rounded-[10px] overflow-hidden">
               <div className="grid grid-cols-[80px_1fr_100px_100px] text-[13px] font-semibold text-gray-500 p-4 border-b border-[#EBEBEA]">
-                <div>{t.tableRank}</div>
-                <div>{t.tablePlayer}</div>
-                <div>{t.tableElo}</div>
-                <div>{t.tableGames}</div>
+                <div>{tLanding.tableRank}</div>
+                <div>{tLanding.tablePlayer}</div>
+                <div>{tLanding.tableElo}</div>
+                <div>{tLanding.tableGames}</div>
               </div>
               
               <div className="divide-y divide-[#EBEBEA]">

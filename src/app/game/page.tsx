@@ -7,14 +7,14 @@ import { TopBar } from "@/components/TopBar";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { createInitialBoard, getValidMoves, applyMove, getBestMove, Board, Move, Player, Piece } from "@/lib/checkers";
-import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock } from "lucide-react";
+import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/useUser";
 
 function GameContent() {
   const router = useRouter();
   const { lang, openAuthModal } = useAppStore();
-  const { user } = useUser();
+  const { user, profile, refreshProfile } = useUser();
   const t = translations[lang].game;
   const tLanding = translations[lang].landing;
 
@@ -27,6 +27,22 @@ function GameContent() {
   const [whiteTime, setWhiteTime] = useState(5 * 60);
   const [blackTime, setBlackTime] = useState(5 * 60);
   const [gameStatus, setGameStatus] = useState<'playing' | 'white_won' | 'black_won' | 'draw'>('playing');
+
+  useEffect(() => {
+    const tParam = searchParams.get('timer');
+    if (tParam) {
+      if (tParam === '∞') {
+        setWhiteTime(999 * 60);
+        setBlackTime(999 * 60);
+      } else {
+        const mins = parseInt(tParam);
+        if (!isNaN(mins)) {
+          setWhiteTime(mins * 60);
+          setBlackTime(mins * 60);
+        }
+      }
+    }
+  }, [searchParams]);
 
   // New states for interactions and animations
   const [chainState, setChainState] = useState<{
@@ -46,10 +62,95 @@ function GameContent() {
   const [flashSquare, setFlashSquare] = useState<{r: number, c: number} | null>(null);
   const [lastMoveSquares, setLastMoveSquares] = useState<{from: {r:number,c:number}, to: {r:number,c:number}} | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
+  
+  // Multiplayer states
+  const [room, setRoom] = useState<any>(null);
+  const [isHost, setIsHost] = useState(false);
+  const [inputCode, setInputCode] = useState("");
+  const [opponentProfile, setOpponentProfile] = useState<any>(null);
+  const [multiplayerLoading, setMultiplayerLoading] = useState(false);
 
   const searchParams = useSearchParams();
   const difficulty = searchParams.get('difficulty') || "Легко";
+  const mode = searchParams.get('mode') || "ai";
   const aiDepth = difficulty === "Сложно" ? 6 : difficulty === "Средне" ? 4 : 2;
+
+  const handleGameOver = async (winner: Player | 'draw') => {
+    if (mode !== 'ai' || !user || !profile) return;
+
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      
+      const playerWon = winner === 'white';
+      const isDraw = winner === 'draw';
+      
+      // Calculate reward
+      let reward = 0;
+      if (playerWon) {
+        reward = difficulty === "Сложно" ? 100 : difficulty === "Средне" ? 75 : 50;
+      }
+
+      // Calculate ELO change
+      const eloChange = playerWon ? 12 : (isDraw ? 0 : -8);
+
+      // Save Game Record
+      await supabase.from('games').insert({
+        player_id: user.id,
+        opponent: 'ai_' + (difficulty === 'Сложно' ? 'hard' : difficulty === 'Средне' ? 'medium' : 'easy'),
+        winner: playerWon ? 'player' : (isDraw ? 'draw' : 'opponent'),
+        mode: 'ai',
+        difficulty: difficulty,
+        moves: moveHistory,
+        coins_earned: reward,
+        elo_change: eloChange,
+      });
+
+      // Update Streak
+      const today = new Date().toISOString().split('T')[0];
+      const lastPlayed = profile.last_played_date;
+      let newStreak = profile.current_streak || 0;
+
+      if (lastPlayed !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        if (lastPlayed === yesterdayStr) {
+          newStreak += 1;
+        } else {
+          newStreak = 1;
+        }
+      }
+
+      const updates: any = {
+        coins: (profile.coins || 0) + reward,
+        elo: (profile.elo || 1200) + eloChange,
+        current_streak: newStreak,
+        last_played_date: today,
+        longest_streak: Math.max(newStreak, profile.longest_streak || 0)
+      };
+
+      // Milestone rewards
+      if ([3, 7, 14, 30].includes(newStreak) && lastPlayed !== today) {
+        const skinMap: Record<number, string> = { 3: 'gold', 7: 'fire', 14: 'diamond', 30: 'legend' };
+        const coinMap: Record<number, number> = { 3: 0, 7: 200, 14: 500, 30: 1000 };
+        updates.coins += coinMap[newStreak];
+        if (skinMap[newStreak]) {
+           updates.unlocked_skins = [...(profile.unlocked_skins || []), skinMap[newStreak]];
+        }
+      }
+
+      await supabase.from('profiles').update(updates).eq('id', user.id);
+      refreshProfile?.();
+      
+      if (reward > 0) {
+        (window as any).lastReward = reward;
+      }
+    } catch (err) {
+      console.error('Error updating profile after game:', err);
+    }
+  };
 
   const playSound = useCallback((type: 'select' | 'move' | 'capture') => {
     try {
@@ -90,12 +191,156 @@ function GameContent() {
     }
   }, []);
 
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const code = searchParams.get('code');
+    const tParam = searchParams.get('timer');
+    
+    if (mode === 'multiplayer' && !room && !multiplayerLoading) {
+      if (action === 'create') {
+        createRoom(tParam);
+      } else if (action === 'join' && code) {
+        joinRoom(code);
+      }
+    }
+  }, [mode, searchParams, room, multiplayerLoading]);
+
+  // Multiplayer logic
+  const createRoom = async (timerSetting?: string | null) => {
+    if (!user) return openAuthModal();
+    setMultiplayerLoading(true);
+    try {
+      const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .insert({
+          code,
+          host_id: user.id,
+          board_state: board,
+          status: 'waiting',
+          current_turn: 'white',
+          timer_setting: timerSetting || '5 мин'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setRoom(data);
+      setIsHost(true);
+    } catch (err) {
+      console.error('Error creating room:', err);
+    } finally {
+      setMultiplayerLoading(false);
+    }
+  };
+
+  const joinRoom = async (code: string) => {
+    if (!user) return openAuthModal();
+    setMultiplayerLoading(true);
+    try {
+      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .select('*, host_profile:profiles!host_id(*)')
+        .eq('code', code.toUpperCase())
+        .single();
+
+      if (error) throw error;
+      if (data.status === 'finished') {
+        alert(lang === 'RU' ? "Эта игра уже завершена" : "This game is already finished");
+        return;
+      }
+
+      const { data: updatedRoom, error: updateError } = await supabase
+        .from('game_rooms')
+        .update({ guest_id: user.id, status: 'playing' })
+        .eq('id', data.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      setRoom(updatedRoom);
+      setIsHost(false);
+      setBoard(updatedRoom.board_state);
+      setOpponentProfile(data.host_profile);
+    } catch (err) {
+      console.error('Error joining room:', err);
+      alert(lang === 'RU' ? "Комната не найдена" : "Room not found");
+    } finally {
+      setMultiplayerLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!room || mode !== 'multiplayer') return;
+
+    const setupRealtime = async () => {
+      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const channel = supabase
+        .channel(`room:${room.code}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_rooms',
+          filter: `id=eq.${room.id}`
+        }, async (payload) => {
+          const newRoom = payload.new;
+          setRoom(newRoom);
+          setBoard(newRoom.board_state);
+          setCurrentPlayer(newRoom.current_turn as Player);
+          
+          if (newRoom.status === 'playing' && !opponentProfile) {
+            const opponentId = isHost ? newRoom.guest_id : newRoom.host_id;
+            if (opponentId) {
+               const { data: prof } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
+               setOpponentProfile(prof);
+            }
+          }
+
+          if (newRoom.status === 'finished') {
+            setGameStatus(newRoom.winner === 'white' ? 'white_won' : (newRoom.winner === 'black' ? 'black_won' : 'draw'));
+          }
+        })
+        .subscribe();
+
+      return channel;
+    };
+
+    let channel: any;
+    setupRealtime().then(c => channel = c);
+
+    return () => {
+      if (channel) {
+        import('@/lib/supabase/client').then(({ createClient }) => {
+          createClient().removeChannel(channel);
+        });
+      }
+    };
+  }, [room, isHost, opponentProfile, mode]);
+
+  const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string) => {
+    if (!room || mode !== 'multiplayer') return;
+    const supabase = (await import('@/lib/supabase/client')).createClient();
+    await supabase
+      .from('game_rooms')
+      .update({
+        board_state: newBoard,
+        current_turn: nextTurn,
+        status: winner ? 'finished' : 'playing',
+        winner: winner || null
+      })
+      .eq('id', room.id);
+  };
+
   const checkGameEnd = useCallback((currentBoard: Board, nextPlayer: Player) => {
     const nextMoves = getValidMoves(currentBoard, nextPlayer);
     if (nextMoves.length === 0) {
-      setGameStatus(nextPlayer === 'white' ? 'black_won' : 'white_won');
+      const winner = nextPlayer === 'white' ? 'black_won' : 'white_won';
+      setGameStatus(winner);
+      handleGameOver(nextPlayer === 'white' ? 'black' : 'white');
     }
-  }, []);
+  }, [board, mode, user, profile]);
 
   function formatMove(move: Move) {
     const cols = 'ABCDEFGH';
@@ -131,7 +376,7 @@ function GameContent() {
   }, [currentPlayer, gameStatus]);
 
   useEffect(() => {
-    if (currentPlayer === 'black' && gameStatus === 'playing') {
+    if (mode === 'ai' && currentPlayer === 'black' && gameStatus === 'playing') {
       setAiThinking(true);
       const timeout = setTimeout(() => {
         const bestMove = getBestMove(board, 'black', aiDepth);
@@ -139,11 +384,12 @@ function GameContent() {
           animateAiMove(bestMove);
         } else {
           setGameStatus('white_won');
+          handleGameOver('white');
         }
       }, 500);
       return () => clearTimeout(timeout);
     }
-  }, [currentPlayer, board, gameStatus, aiDepth]);
+  }, [currentPlayer, board, gameStatus, aiDepth, mode]);
 
   const animateAiMove = async (move: Move) => {
     setAiThinking(false);
@@ -203,7 +449,12 @@ function GameContent() {
   }, [chainState, selectedCell, validMoves]);
 
   const handleCellClick = (r: number, c: number) => {
-    if (gameStatus !== 'playing' || currentPlayer !== 'white') return;
+    if (gameStatus !== 'playing') return;
+    if (mode === 'ai' && currentPlayer !== 'white') return;
+    if (mode === 'multiplayer') {
+      const myColor = isHost ? 'white' : 'black';
+      if (currentPlayer !== myColor) return;
+    }
     if (aiThinking || aiAnimState) return;
 
     if (chainState) {
@@ -234,8 +485,14 @@ function GameContent() {
              setLastMoveSquares({ from: completedMove.from, to: completedMove.to });
              setChainState(null);
              setCapturedIds([]);
-             setCurrentPlayer('black');
-             checkGameEnd(newBoard, 'black');
+             const nextP = currentPlayer === 'white' ? 'black' : 'white';
+             setCurrentPlayer(nextP);
+             
+             if (mode === 'multiplayer') {
+               updateMultiplayerBoard(newBoard, nextP);
+             }
+             
+             checkGameEnd(newBoard, nextP);
            }, 220);
         } else {
            const nextMoves = chainState.moves.filter(m => m.path && m.path.length > newPathTaken.length && m.path[newPathTaken.length - 1].r === hop.r && m.path[newPathTaken.length - 1].c === hop.c);
@@ -248,8 +505,8 @@ function GameContent() {
       return;
     }
 
-    if (board[r][c]?.player === 'white') {
-      const allMoves = getValidMoves(board, 'white');
+    if (board[r][c]?.player === currentPlayer) {
+      const allMoves = getValidMoves(board, currentPlayer);
       const pieceMoves = allMoves.filter(m => m.from.r === r && m.from.c === c);
       if (pieceMoves.length > 0) {
         playSound('select');
@@ -302,8 +559,14 @@ function GameContent() {
               setLastMoveSquares({ from: move.from, to: move.to });
               setChainState(null);
               setCapturedIds([]);
-              setCurrentPlayer('black');
-              checkGameEnd(newBoard, 'black');
+              const nextP = currentPlayer === 'white' ? 'black' : 'white';
+              setCurrentPlayer(nextP);
+              
+              if (mode === 'multiplayer') {
+                updateMultiplayerBoard(newBoard, nextP);
+              }
+              
+              checkGameEnd(newBoard, nextP);
             }, 220);
          }
       } else {
@@ -333,9 +596,99 @@ function GameContent() {
     return newBoard;
   }, [board, chainState, aiAnimState]);
 
+  if (mode === 'multiplayer' && !room) {
+    return (
+      <>
+        <TopBar titleKey="chooseMode" />
+        <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
+          <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl border border-[#EBEBEA] shadow-sm">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">{t.createRoom}</h2>
+              <p className="text-gray-500 mt-2">{t.waitingOpponent}</p>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={createRoom}
+                disabled={multiplayerLoading}
+                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-50"
+              >
+                {multiplayerLoading ? "..." : t.createRoom}
+              </button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400">ИЛИ</span></div>
+              </div>
+
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder={t.enterCode}
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all uppercase font-mono text-center text-lg"
+                />
+                <button
+                  onClick={() => joinRoom(inputCode)}
+                  disabled={multiplayerLoading || inputCode.length < 6}
+                  className="w-full py-3 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  {t.joinRoom}
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  if (mode === 'multiplayer' && room?.status === 'waiting') {
+    return (
+      <>
+        <TopBar titleKey="chooseMode" />
+        <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
+          <div className="w-full max-w-md text-center space-y-8 bg-white p-10 rounded-2xl border border-[#EBEBEA] shadow-lg">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto animate-pulse">
+              <Clock size={32} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{t.waitingOpponent}</h2>
+              <p className="text-gray-500 mt-1">{translations[lang].game.shareCode}</p>
+            </div>
+            <div className="bg-indigo-50/50 p-8 rounded-2xl border-2 border-dashed border-indigo-200">
+               <div className="text-[11px] uppercase tracking-[0.2em] text-indigo-400 font-bold mb-2">{translations[lang].game.roomCode}</div>
+               <span className="text-4xl font-black tracking-[0.3em] font-mono text-indigo-600">{room.code}</span>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(room.code);
+                  alert(lang === 'RU' ? "Скопировано!" : "Copied!");
+                }}
+                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+              >
+                <Copy size={18} />
+                {t.copyCode}
+              </button>
+              <button
+                onClick={() => setRoom(null)}
+                className="w-full py-3 text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors"
+              >
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
-      <TopBar titleKey="gameVsAi" />
+      <TopBar titleKey={mode === 'ai' ? "gameVsAi" : "chooseMode"} />
       <motion.main 
         className="flex-1 flex overflow-hidden"
         initial={{ opacity: 0, y: 8 }}
@@ -343,12 +696,30 @@ function GameContent() {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F6F3] p-8">
-          <button 
-            onClick={() => router.push("/")}
-            className="self-start mb-8 px-4 py-2 bg-white border border-[#EBEBEA] rounded-[8px] text-[13px] font-semibold hover:bg-gray-50 transition-colors"
-          >
-            {t.back}
-          </button>
+          <div className="self-start flex items-center justify-between w-full mb-8">
+            <button 
+              onClick={() => router.push("/")}
+              className="px-4 py-2 bg-white border border-[#EBEBEA] rounded-[8px] text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+            >
+              {t.back}
+            </button>
+            
+            {mode === 'multiplayer' && !room && (
+              <div className="px-6 py-2 bg-indigo-600 text-white rounded-full font-bold text-lg shadow-lg shadow-indigo-100 animate-pulse">
+                {currentPlayer === 'white' ? t.white : t.black}
+              </div>
+            )}
+
+            {mode === 'multiplayer' && (
+              <div className={`px-6 py-2 rounded-full font-bold text-lg shadow-lg ${
+                currentPlayer === (isHost ? 'white' : 'black') 
+                  ? 'bg-green-500 text-white shadow-green-100' 
+                  : 'bg-gray-200 text-gray-500 shadow-gray-100'
+              }`}>
+                {currentPlayer === (isHost ? 'white' : 'black') ? t.yourTurn : t.opponentTurn}
+              </div>
+            )}
+          </div>
           
           <div className="w-[560px] h-[560px] bg-white border-[12px] border-[#D4C3A3] rounded-[8px] relative shadow-sm">
             
@@ -445,12 +816,16 @@ function GameContent() {
         <div className="w-[320px] bg-white border-l border-[#EBEBEA] flex flex-col h-full">
           <div className="p-6 border-b border-[#EBEBEA] bg-gray-50 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white">
-                🤖
+              <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white overflow-hidden">
+                {mode === 'ai' ? <Bot size={24} /> : (opponentProfile?.avatar_url ? <img src={opponentProfile.avatar_url} className="w-full h-full object-cover" /> : <User size={24} />)}
               </div>
               <div>
-                <div className="font-semibold">{t.black}</div>
-                <div className="text-[12px] text-gray-500">{difficulty === "Сложно" ? tLanding.hardAi : difficulty === "Средне" ? tLanding.mediumAi : tLanding.easyAi}</div>
+                <div className="font-semibold">
+                   {mode === 'ai' ? t.black : (mode === 'multiplayer' ? (opponentProfile?.username || '...') : t.black)}
+                </div>
+                <div className="text-[12px] text-gray-500">
+                  {mode === 'ai' ? (difficulty === "Сложно" ? tLanding.hard : difficulty === "Средне" ? tLanding.medium : tLanding.easy) : (opponentProfile ? `${opponentProfile.elo} ${translations[lang].topbar.elo}` : '')}
+                </div>
               </div>
             </div>
             <div className={`flex items-center gap-1.5 font-mono text-[20px] font-semibold ${currentPlayer === 'black' ? 'text-black' : 'text-gray-400'}`}>
@@ -484,22 +859,30 @@ function GameContent() {
 
           <div className="p-6 border-t border-[#EBEBEA] flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-600">
-                👤
+              <div className="w-10 h-10 bg-white border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-600 overflow-hidden">
+                {profile?.avatar_url ? <img src={profile.avatar_url} /> : <User size={24} />}
               </div>
               <div>
-                <div className="font-semibold">{t.white}</div>
-                <div className="text-[12px] text-[#6366F1] font-semibold">{t.yourTurn}</div>
+                <div className="font-semibold">
+                  {profile?.username || t.white}
+                </div>
+                {currentPlayer === (isHost || mode !== 'multiplayer' ? 'white' : 'black') && (
+                  <div className="text-[12px] text-[#6366F1] font-semibold">{t.yourTurn}</div>
+                )}
               </div>
             </div>
-            <div className={`flex items-center gap-1.5 font-mono text-[20px] font-semibold ${currentPlayer === 'white' ? 'text-black' : 'text-gray-400'}`}>
-              <Clock size={16} /> {formatTime(whiteTime)}
+            <div className={`flex items-center gap-1.5 font-mono text-[20px] font-semibold ${currentPlayer === (isHost || mode !== 'multiplayer' ? 'white' : 'black') ? 'text-black' : 'text-gray-400'}`}>
+              <Clock size={16} /> {formatTime(isHost || mode !== 'multiplayer' ? whiteTime : blackTime)}
             </div>
           </div>
 
           <div className="p-6 pt-0">
             <button 
-              onClick={() => setGameStatus('black_won')}
+              onClick={() => {
+                const winner = currentPlayer === 'white' ? 'black' : 'white';
+                setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
+                handleGameOver(winner);
+              }}
               disabled={gameStatus !== 'playing'}
               className="w-full py-3 rounded-[8px] border border-[#EBEBEA] text-[14px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
@@ -544,15 +927,34 @@ function GameContent() {
               </div>
 
               <div className="p-8 bg-gray-50 text-center relative">
-                <h3 className="text-[16px] font-semibold mb-2">{t.unlockAnalysis}</h3>
-                <p className="text-[13px] text-gray-500 mb-6">{t.analysisSub}</p>
+                {user ? (
+                  <>
+                    <h3 className="text-[16px] font-semibold mb-2 flex items-center justify-center gap-2">
+                      <Bot size={18} /> AI Coach
+                    </h3>
+                    <p className="text-[13px] text-gray-500 mb-4">
+                      {gameStatus === 'white_won' ? (lang === 'RU' ? 'Отличная игра! Вы точно следовали стратегии.' : 'Great game! You followed the strategy perfectly.') : (lang === 'RU' ? 'В следующий раз попробуйте контролировать центр доски.' : 'Next time, try to control the center of the board.')}
+                    </p>
+                    
+                    {(window as any).lastReward > 0 && (
+                      <div className="mb-6 p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 font-bold text-[14px] flex items-center justify-center gap-2 animate-bounce">
+                        <Coins size={16} color="#d4a017" /> +{(window as any).lastReward} {translations[lang].topbar.coins}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-[16px] font-semibold mb-2">{t.unlockAnalysis}</h3>
+                    <p className="text-[13px] text-gray-500 mb-6">{t.analysisSub}</p>
 
-                <div className="relative h-[100px] mb-6 rounded-[8px] overflow-hidden border border-[#EBEBEA] bg-white">
-                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHRleHQgeD0iMCIgeT0iMTUiIGZpbGw9IiNlN2U3ZTciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTIiPjEyLiA8L3RleHQ+PC9zdmc+')] opacity-50"></div>
-                  <div className="absolute inset-0 backdrop-blur-[4px] bg-white/60 flex items-center justify-center">
-                    <Lock className="text-gray-400" size={24} />
-                  </div>
-                </div>
+                    <div className="relative h-[100px] mb-6 rounded-[8px] overflow-hidden border border-[#EBEBEA] bg-white">
+                      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHRleHQgeD0iMCIgeT0iMTUiIGZpbGw9IiNlN2U3ZTciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTIiPjEyLiA8L3RleHQ+PC9zdmc+')] opacity-50"></div>
+                      <div className="absolute inset-0 backdrop-blur-[4px] bg-white/60 flex items-center justify-center">
+                        <Lock className="text-gray-400" size={24} />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-3">
                   {!user && (
@@ -573,6 +975,7 @@ function GameContent() {
                       setMoveHistory([]);
                       setWhiteTime(5 * 60);
                       setBlackTime(5 * 60);
+                      (window as any).lastReward = 0;
                     }}
                     className="w-full bg-white text-black border border-[#EBEBEA] py-3 rounded-[8px] text-[14px] font-semibold hover:bg-gray-50 transition-colors"
                   >

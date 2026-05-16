@@ -1,25 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
-import { Play, Lock } from "lucide-react";
+import { Play, Lock, Bot, Users, Globe } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
-
-const RobotIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
-);
-
-const UsersIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-);
-
-const GlobeIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
-);
 
 export default function Home() {
   const router = useRouter();
@@ -30,6 +18,7 @@ export default function Home() {
   const [mode, setMode] = useState("ai");
   const [timer, setTimer] = useState("5 мин");
   const [difficulty, setDifficulty] = useState("Легко");
+  const [roomCode, setRoomCode] = useState("");
 
   const difficultyColors: Record<string, string> = {
     "Легко": "bg-green-100 text-green-800 border-green-200",
@@ -38,16 +27,20 @@ export default function Home() {
   };
 
   const getDifficultyLabel = () => {
-    if (difficulty === "Легко") return t.easyAi;
-    if (difficulty === "Средне") return t.mediumAi;
-    return t.hardAi;
+    if (difficulty === "Легко") return t.easy;
+    if (difficulty === "Средне") return t.medium;
+    return t.hard;
   };
 
   const handleModeSelect = (newMode: string) => {
-    if (newMode === "ai" || user) {
+    if (newMode === "ai") {
       setMode(newMode);
     } else {
-      openAuthModal();
+      if (user) {
+        setMode(newMode);
+      } else {
+        openAuthModal();
+      }
     }
   };
 
@@ -65,52 +58,25 @@ export default function Home() {
           
           {/* Section 1 - Mode selector */}
           <section>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               
               {/* Card 1 - AI */}
               <button 
-                className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
-                  mode === "ai" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
+                className={`relative p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
+                  mode === "ai" ? "border-2 border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
                 }`}
                 onClick={() => handleModeSelect("ai")}
               >
-                <div className="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full">
-                  {t.free}
+                <div className={`w-14 h-14 rounded-[12px] flex items-center justify-center ${mode === "ai" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
+                  <Bot size={28} />
                 </div>
-                <div className={`w-14 h-14 rounded-[8px] flex items-center justify-center mb-4 ${mode === "ai" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
-                  <RobotIcon />
-                </div>
-                <h3 className="text-[16px] font-semibold mb-1 mt-auto">{t.vsAi}</h3>
-                <p className="text-[14px] text-gray-500 leading-snug">
-                  {t.vsAiDesc}
-                </p>
+                <h3 className="text-[18px] font-bold">{t.vsAi}</h3>
               </button>
 
-              {/* Card 2 - With Friend */}
+              {/* Card 2 - With Friend (Multiplayer) */}
               <button 
-                className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
-                  mode === "friend" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
-                } ${!user ? "opacity-60" : ""}`}
-                onClick={() => handleModeSelect("friend")}
-              >
-                {!user && (
-                  <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Lock size={12} /> {translations[lang].sidebar.login}
-                  </div>
-                )}
-                <div className={`w-14 h-14 rounded-[8px] flex items-center justify-center mb-4 ${mode === "friend" ? "bg-[#6366F1] text-white" : "bg-gray-100 text-gray-500"}`}>
-                  <UsersIcon />
-                </div>
-                <h3 className={`text-[16px] font-semibold mb-1 mt-auto ${!user ? "text-gray-600" : ""}`}>{t.withFriend}</h3>
-                <p className={`text-[14px] leading-snug ${!user ? "text-gray-400" : "text-gray-500"}`}>
-                  {t.withFriendDesc}
-                </p>
-              </button>
-
-              {/* Card 3 - Multiplayer */}
-              <button 
-                className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
-                  mode === "multiplayer" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
+                className={`relative p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
+                  mode === "multiplayer" ? "border-2 border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
                 } ${!user ? "opacity-60" : ""}`}
                 onClick={() => handleModeSelect("multiplayer")}
               >
@@ -119,96 +85,187 @@ export default function Home() {
                     <Lock size={12} /> {translations[lang].sidebar.login}
                   </div>
                 )}
-                <div className={`w-14 h-14 rounded-[8px] flex items-center justify-center mb-4 ${mode === "multiplayer" ? "bg-[#6366F1] text-white" : "bg-gray-100 text-gray-500"}`}>
-                  <GlobeIcon />
+                <div className={`w-14 h-14 rounded-[12px] flex items-center justify-center ${mode === "multiplayer" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
+                  <Users size={28} />
                 </div>
-                <h3 className={`text-[16px] font-semibold mb-1 mt-auto ${!user ? "text-gray-600" : ""}`}>{t.multiplayer}</h3>
-                <p className={`text-[14px] leading-snug ${!user ? "text-gray-400" : "text-gray-500"}`}>
-                  {t.multiplayerDesc}
-                </p>
+                <h3 className="text-[18px] font-bold">{t.withFriend}</h3>
               </button>
 
             </div>
           </section>
 
-          {/* Section 2 - Game settings */}
-          <section className="grid grid-cols-2 gap-8">
-            
-            {/* Block 1 - Timer */}
-            <div>
-              <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
-                {t.timer}
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {["3", "5", "10", "∞"].map((tValue) => (
-                  <button
-                    key={tValue}
-                    onClick={() => setTimer(tValue === "∞" ? tValue : `${tValue} ${t.min}`)}
-                    className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
-                      timer === (tValue === "∞" ? tValue : `${tValue} ${t.min}`) 
-                        ? "bg-black text-white border-black" 
-                        : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
-                    }`}
-                  >
-                    {tValue === "∞" ? tValue : `${tValue} ${t.min}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Block 2 - Difficulty */}
-            <div className={mode !== "ai" ? "opacity-40 pointer-events-none" : ""}>
-              <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
-                {t.difficulty}
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {["Легко", "Средне", "Сложно"].map((d) => {
-                  const isSelected = difficulty === d;
-                  const label = d === "Легко" ? t.easy : d === "Средне" ? t.medium : t.hard;
-                  return (
-                    <button
-                      key={d}
-                      onClick={() => setDifficulty(d)}
-                      className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
-                        isSelected 
-                          ? difficultyColors[d]
-                          : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-          </section>
-
-          {/* Section 3 - Play CTA */}
-          <section>
-            <div className="bg-black text-white rounded-[12px] p-[20px_28px] flex items-center justify-between">
-              <div>
-                <h2 className="text-[18px] font-semibold mb-0.5">{t.startGame}</h2>
-                <div className="text-[14px] text-gray-400">
-                  {timer} · {mode === "ai" ? getDifficultyLabel() : (mode === "friend" ? t.withFriend : t.multiplayer)} · {t.russianCheckers}
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  if (mode === "ai") {
-                    router.push(`/game?difficulty=${encodeURIComponent(difficulty)}`);
-                  } else {
-                    // Logic for other modes
-                    alert("Этот режим скоро будет доступен!");
-                  }
-                }}
-                className="bg-white text-black px-6 py-2.5 rounded-[8px] text-[14px] font-semibold flex items-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
+          <AnimatePresence mode="wait">
+            {mode === 'ai' ? (
+              <motion.div
+                key="ai-settings"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-10"
               >
-                <Play size={18} fill="currentColor" />
-                {t.play}
-              </button>
-            </div>
-          </section>
+                {/* Section 2 - Game settings (AI) */}
+                <section className="grid grid-cols-2 gap-8">
+                  {/* Block 1 - Timer */}
+                  <div>
+                    <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                      {t.timer}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {["3", "5", "10", "∞"].map((tValue) => (
+                        <button
+                          key={tValue}
+                          onClick={() => setTimer(tValue === "∞" ? tValue : `${tValue} ${t.min}`)}
+                          className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
+                            timer === (tValue === "∞" ? tValue : `${tValue} ${t.min}`) 
+                              ? "bg-black text-white border-black" 
+                              : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
+                          }`}
+                        >
+                          {tValue === "∞" ? tValue : `${tValue} ${t.min}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Block 2 - Difficulty */}
+                  <div>
+                    <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                      {t.difficulty}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {["Легко", "Средне", "Сложно"].map((d) => {
+                        const isSelected = difficulty === d;
+                        const label = d === "Легко" ? t.easy : d === "Средне" ? t.medium : t.hard;
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => setDifficulty(d)}
+                            className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
+                              isSelected 
+                                ? difficultyColors[d]
+                                : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section 3 - Play CTA */}
+                <section>
+                  <div className="bg-black text-white rounded-[16px] p-[24px_32px] flex items-center justify-between shadow-xl shadow-gray-200">
+                    <div>
+                      <h2 className="text-[20px] font-bold mb-0.5">{t.startGame}</h2>
+                      <div className="text-[14px] text-gray-400">
+                        {timer} · {getDifficultyLabel()} · {t.play}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        params.set('mode', 'ai');
+                        params.set('difficulty', difficulty);
+                        params.set('timer', timer);
+                        router.push(`/game?${params.toString()}`);
+                      }}
+                      className="bg-white text-black px-8 py-3 rounded-[12px] text-[15px] font-bold flex items-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
+                    >
+                      <Play size={20} fill="currentColor" />
+                      {t.play}
+                    </button>
+                  </div>
+                </section>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="multiplayer-settings"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-8"
+              >
+                <div className="grid grid-cols-2 gap-8">
+                  {/* Create Room Block */}
+                  <div className="bg-white p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
+                    <h3 className="text-[18px] font-bold flex items-center gap-2">
+                      <Play className="text-indigo-600" size={20} /> {translations[lang].game.createRoom}
+                    </h3>
+                    
+                    <div>
+                      <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                        {t.timer}
+                      </h2>
+                      <div className="flex flex-wrap gap-2">
+                        {["3", "5", "10", "∞"].map((tValue) => (
+                          <button
+                            key={tValue}
+                            onClick={() => setTimer(tValue === "∞" ? tValue : `${tValue} ${t.min}`)}
+                            className={`h-[36px] px-4 rounded-[8px] text-[13px] font-semibold transition-all border ${
+                              timer === (tValue === "∞" ? tValue : `${tValue} ${t.min}`) 
+                                ? "bg-black text-white border-black" 
+                                : "bg-gray-50 text-gray-700 border-[#EBEBEA] hover:bg-gray-100"
+                            }`}
+                          >
+                            {tValue === "∞" ? tValue : `${tValue} ${t.min}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        // Logic to create room and redirect
+                        const params = new URLSearchParams();
+                        params.set('mode', 'multiplayer');
+                        params.set('action', 'create');
+                        params.set('timer', timer);
+                        router.push(`/game?${params.toString()}`);
+                      }}
+                      className="w-full py-3 bg-indigo-600 text-white rounded-[12px] font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                    >
+                      {translations[lang].game.createRoom}
+                    </button>
+                  </div>
+
+                  {/* Join Room Block */}
+                  <div className="bg-white p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
+                    <h3 className="text-[18px] font-bold flex items-center gap-2">
+                      <Globe className="text-indigo-600" size={20} /> {translations[lang].game.joinRoom}
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold">
+                        {translations[lang].game.enterCode}
+                      </h2>
+                      <input 
+                        type="text" 
+                        value={roomCode}
+                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                        placeholder="ABCDEF"
+                        className="w-full h-[48px] px-4 bg-gray-50 border border-[#EBEBEA] rounded-[10px] text-center font-mono text-[18px] tracking-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        maxLength={6}
+                      />
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        if (roomCode.length === 6) {
+                          router.push(`/game?mode=multiplayer&action=join&code=${roomCode}`);
+                        }
+                      }}
+                      disabled={roomCode.length !== 6}
+                      className="w-full py-3 bg-black text-white rounded-[12px] font-bold hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+                    >
+                      {translations[lang].game.joinRoom}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
         </div>
       </motion.main>
