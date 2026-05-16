@@ -43,18 +43,18 @@ export default function StatisticsPage() {
         if (error) throw error;
 
         const total = games.length;
-        const wins = games.filter(g => g.winner === "player").length;
-        const losses = games.filter(g => g.winner === "opponent").length;
-        const draws = games.filter(g => g.winner === "draw").length;
-        const coins = games.reduce((acc, g) => acc + (g.coins_earned || 0), 0);
+        const wins = games.filter((g: any) => g.winner === "player").length;
+        const losses = games.filter((g: any) => g.winner === "opponent").length;
+        const draws = games.filter((g: any) => g.winner === "draw").length;
+        const coins = games.reduce((acc: number, g: any) => acc + (g.coins_earned || 0), 0);
         
         // Avg moves
-        const avgMoves = total > 0 ? Math.round(games.reduce((acc, g) => acc + (g.moves?.length || 0), 0) / total) : 0;
+        const avgMoves = total > 0 ? Math.round(games.reduce((acc: number, g: any) => acc + (g.moves?.length || 0), 0) / total) : 0;
 
         // Weekly progress
         const weekly = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
         const now = new Date();
-        games.forEach(g => {
+        games.forEach((g: any) => {
           const d = new Date(g.created_at);
           const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 3600 * 24));
           if (diff < 7 && g.winner === 'player') {

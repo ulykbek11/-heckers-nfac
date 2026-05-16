@@ -12,6 +12,7 @@ export interface Profile {
   last_played_date?: string | null;
   avatar_url?: string | null;
   unlocked_skins?: string[];
+  active_skin?: string;
 }
 
 interface AuthState {

@@ -61,7 +61,14 @@
     "createRoom": "Create Room",
     "enterCode": "Enter room code",
     "roomCode": "Room Code",
-    "shareCode": "Share this code with a friend"
+    "shareCode": "Share this code with a friend",
+    "history": "Move History",
+    "gameVsAi": "Game vs AI",
+    "chooseMode": "Choose Game Mode",
+    "unlockAnalysis": "Unlock Post-Game Analysis",
+    "analysisSub": "Sign up to view move breakdowns from our AI coach.",
+    "registerAnalysis": "Register and View",
+    "playAgain": "Play Again"
   },
   "stats": {
     "title": "Statistics",
@@ -101,5 +108,16 @@
   },
   "modal": {
     "loginToPlayFriend": "Log in to play with a friend"
+  },
+  "authModal": {
+    "title": "Create an Account",
+    "subtitle": "To save your progress, earn coins, and unlock new skins.",
+    "f1": "Save match history",
+    "f2": "Earn coins and buy skins",
+    "f3": "Global Leaderboard ranking",
+    "f4": "Play with friends via link",
+    "f5": "Post-game AI analysis",
+    "register": "Create Account",
+    "login": "Already have an account? Log in"
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { translations } from "@/lib/i18n";
+import { translations, TranslationType } from "@/lib/i18n";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

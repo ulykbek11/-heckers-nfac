@@ -7,7 +7,7 @@ import { Suspense } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { createInitialBoard, getValidMoves, applyMove, getBestMove, Board, Move, Player, Piece } from "@/lib/checkers";
-import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw } from "lucide-react";
+import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw, Coins } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/useUser";
 
@@ -285,7 +285,7 @@ function GameContent() {
           schema: 'public',
           table: 'game_rooms',
           filter: `id=eq.${room.id}`
-        }, async (payload) => {
+        }, async (payload: any) => {
           const newRoom = payload.new;
           setRoom(newRoom);
           setBoard(newRoom.board_state);
@@ -612,7 +612,7 @@ function GameContent() {
 
             <div className="space-y-4">
               <button
-                onClick={createRoom}
+                onClick={() => createRoom()}
                 disabled={multiplayerLoading}
                 className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-50"
               >
@@ -844,7 +844,7 @@ function GameContent() {
           <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col max-h-[120px] lg:max-h-none">
             <div className="flex items-center gap-2 text-[11px] md:text-[13px] font-semibold text-gray-400 uppercase tracking-wider mb-4">
               <HistoryIcon size={14} className="md:w-4 md:h-4" />
-              {tLanding.history}
+              {t.history}
               {aiThinking && (
                 <span className="ml-2 flex gap-1">
                   <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} className="w-1 h-1 bg-gray-400 rounded-full" />
