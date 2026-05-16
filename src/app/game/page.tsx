@@ -77,6 +77,10 @@ function GameContent() {
   const aiDepth = difficulty === "Сложно" ? 6 : difficulty === "Средне" ? 4 : 2;
 
   const handleGameOver = async (winner: Player | 'draw') => {
+    if (mode === 'multiplayer' && room) {
+      updateMultiplayerBoard(board, currentPlayer, winner);
+      return;
+    }
     if (mode !== 'ai' || !user || !profile) return;
 
     try {
@@ -197,14 +201,14 @@ function GameContent() {
     const code = searchParams.get('code');
     const tParam = searchParams.get('timer');
     
-    if (mode === 'multiplayer' && !room && !multiplayerLoading) {
+    if (mode === 'multiplayer' && !room && !multiplayerLoading && user) {
       if (action === 'create') {
         createRoom(tParam);
       } else if (action === 'join' && code) {
         joinRoom(code);
       }
     }
-  }, [mode, searchParams, room, multiplayerLoading]);
+  }, [mode, searchParams, room, multiplayerLoading, user]);
 
   // Multiplayer logic
   const createRoom = async (timerSetting?: string | null) => {
@@ -598,8 +602,12 @@ function GameContent() {
   }, [board, chainState, aiAnimState]);
 
   useEffect(() => {
-    setTopBarTitle(mode === 'ai' ? t.gameVsAi : t.chooseMode);
-  }, [setTopBarTitle, mode, t.gameVsAi, t.chooseMode]);
+    if (mode === 'multiplayer' && room?.status === 'waiting') {
+      setTopBarTitle(`${translations[lang].game.roomCode}: ${room.code}`);
+    } else {
+      setTopBarTitle(mode === 'ai' ? t.gameVsAi : (lang === 'RU' ? 'Игра с другом' : 'Play with Friend'));
+    }
+  }, [setTopBarTitle, mode, t.gameVsAi, t.chooseMode, room, lang]);
 
   if (mode === 'multiplayer' && !room) {
     return (
@@ -888,7 +896,7 @@ function GameContent() {
           <div className="p-4 md:p-6 pt-0">
             <button 
               onClick={() => {
-                const winner = currentPlayer === 'white' ? 'black' : 'white';
+                const winner = (isHost || mode !== 'multiplayer' ? 'white' : 'black') === 'white' ? 'black' : 'white';
                 setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
                 handleGameOver(winner);
               }}
