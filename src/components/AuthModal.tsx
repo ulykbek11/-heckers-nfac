@@ -3,22 +3,31 @@
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { X, Lock, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function AuthModal() {
   const { isAuthModalOpen, closeAuthModal, lang } = useAppStore();
   const t = translations[lang].authModal;
 
-  if (!isAuthModalOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={closeAuthModal}
-    >
-      <div 
-        className="bg-white rounded-[16px] p-8 w-full max-w-[420px] relative flex flex-col items-center text-center"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {isAuthModalOpen && (
+        <motion.div 
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={closeAuthModal}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          <motion.div 
+            className="bg-white rounded-[16px] p-8 w-full max-w-[420px] relative flex flex-col items-center text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ scale: 0.96, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.96, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
         <button 
           onClick={closeAuthModal}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
@@ -54,7 +63,9 @@ export function AuthModal() {
             {t.login}
           </button>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -2,7 +2,7 @@ export const translations = {
   RU: {
     sidebar: {
       home: "Главная",
-      leaderboard: "Рейтинг",
+      leaderboard: "Лидеры",
       stats: "Статистика",
       history: "История",
       shop: "Магазин",

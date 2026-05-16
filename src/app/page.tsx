@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "framer-motion";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
@@ -42,28 +44,17 @@ export default function Home() {
 
   return (
     <>
-      <TopBar titleKey="chooseMode" />
+      <TopBar />
       
-      <main className="flex-1 overflow-y-auto p-8">
+      <motion.main 
+        className="flex-1 overflow-y-auto p-8"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+      >
         <div className="max-w-[800px] mx-auto space-y-10">
 
-          {/* Welcome Banner */}
-          <div className="bg-[#1a1a1a] rounded-[12px] p-[24px_28px] flex items-center justify-between">
-            <div>
-              <h2 className="text-[20px] font-semibold text-white mb-1">{t.bannerTitle}</h2>
-              <p className="text-[13px] text-white/50">{t.bannerSub}</p>
-            </div>
-            <div className="flex flex-col gap-2 text-right">
-              <div className="flex items-center justify-end gap-2 text-white text-[13px]">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                1 200 {t.online}
-              </div>
-              <div className="flex items-center justify-end gap-2 text-white/70 text-[13px]">
-                <Trophy size={14} className="text-yellow-500" />
-                {t.topPlayer} Алматы
-              </div>
-            </div>
-          </div>
+
           
           {/* Section 1 - Mode selector */}
           <section>
@@ -71,8 +62,8 @@ export default function Home() {
               
               {/* Card 1 - AI */}
               <button 
-                className={`relative p-6 bg-white rounded-[10px] text-left transition-all min-h-[160px] flex flex-col ${
-                  mode === "ai" ? "border-[1.5px] border-[#6366F1]" : "border border-[#EBEBEA]"
+                className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
+                  mode === "ai" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
                 }`}
                 onClick={() => setMode("ai")}
               >
@@ -90,7 +81,7 @@ export default function Home() {
 
               {/* Card 2 - With Friend (Locked) */}
               <button 
-                className="relative p-6 bg-white rounded-[10px] border border-[#EBEBEA] text-left opacity-60 hover:opacity-80 transition-opacity min-h-[160px] flex flex-col"
+                className="relative p-6 bg-white rounded-[10px] border border-[#EBEBEA] text-left opacity-60 hover:opacity-80 hover:-translate-y-[2px] hover:border-gray-300 transition-all duration-200 min-h-[160px] flex flex-col"
                 onClick={openAuthModal}
               >
                 <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -107,7 +98,7 @@ export default function Home() {
 
               {/* Card 3 - Multiplayer (Locked) */}
               <button 
-                className="relative p-6 bg-white rounded-[10px] border border-[#EBEBEA] text-left opacity-60 hover:opacity-80 transition-opacity min-h-[160px] flex flex-col"
+                className="relative p-6 bg-white rounded-[10px] border border-[#EBEBEA] text-left opacity-60 hover:opacity-80 hover:-translate-y-[2px] hover:border-gray-300 transition-all duration-200 min-h-[160px] flex flex-col"
                 onClick={openAuthModal}
               >
                 <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -138,7 +129,7 @@ export default function Home() {
                   <button
                     key={tValue}
                     onClick={() => setTimer(tValue === "∞" ? tValue : `${tValue} ${t.min}`)}
-                    className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold transition-colors border ${
+                    className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
                       timer === (tValue === "∞" ? tValue : `${tValue} ${t.min}`) 
                         ? "bg-black text-white border-black" 
                         : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
@@ -163,7 +154,7 @@ export default function Home() {
                     <button
                       key={d}
                       onClick={() => setDifficulty(d)}
-                      className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold transition-colors border ${
+                      className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
                         isSelected 
                           ? difficultyColors[d]
                           : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
@@ -189,7 +180,7 @@ export default function Home() {
               </div>
               <button 
                 onClick={() => router.push(`/game?difficulty=${encodeURIComponent(difficulty)}`)}
-                className="bg-white text-black px-6 py-2.5 rounded-[8px] text-[14px] font-semibold flex items-center gap-2 hover:bg-gray-100 transition-colors"
+                className="bg-white text-black px-6 py-2.5 rounded-[8px] text-[14px] font-semibold flex items-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
               >
                 <Play size={18} fill="currentColor" />
                 {t.play}
@@ -197,79 +188,8 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Section 4 - Dashboard */}
-          <section>
-            <h2 className="text-[15px] font-semibold mb-4">{t.dashboardTitle}</h2>
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="bg-white border border-[#EBEBEA] rounded-[10px] p-5">
-                <div className="text-[13px] text-gray-500 font-semibold uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  {t.playersOnline}
-                </div>
-                <div className="text-[24px] font-semibold">1 204</div>
-              </div>
-              <div className="bg-white border border-[#EBEBEA] rounded-[10px] p-5">
-                <div className="text-[13px] text-gray-500 font-semibold uppercase tracking-wider mb-2">
-                  {t.gamesToday}
-                </div>
-                <div className="text-[24px] font-semibold">3 871</div>
-              </div>
-              <div className="bg-white border border-[#EBEBEA] rounded-[10px] p-5">
-                <div className="text-[13px] text-gray-500 font-semibold uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Trophy size={14} className="text-yellow-500" />
-                  {t.topPlayerDay}
-                </div>
-                <div className="text-[20px] font-semibold">Arman K.</div>
-                <div className="text-[13px] text-gray-400 mt-1">Алматы · 1842 Эло</div>
-              </div>
-            </div>
-
-            {/* Leaderboard Table */}
-            <div className="bg-white border border-[#EBEBEA] rounded-[10px] overflow-hidden relative">
-              <div className="p-4 border-b border-[#EBEBEA]">
-                <h3 className="text-[15px] font-semibold">{t.top5}</h3>
-              </div>
-              <div className="grid grid-cols-[80px_1fr_1fr_100px_100px] text-[13px] font-semibold text-gray-500 p-4 border-b border-[#EBEBEA]">
-                <div>{t.tableRank}</div>
-                <div>{t.tablePlayer}</div>
-                <div>{t.tableCity}</div>
-                <div>{t.tableElo}</div>
-                <div>{t.tableGames}</div>
-              </div>
-              
-              <div className="divide-y divide-[#EBEBEA]">
-                {[
-                  { rank: 1, name: "Arman K.", city: "Алматы", elo: 1842, games: 342 },
-                  { rank: 2, name: "Darkhan B.", city: "Астана", elo: 1810, games: 289 },
-                  { rank: 3, name: "Serik M.", city: "Шымкент", elo: 1795, games: 410, blurred: true },
-                  { rank: 4, name: "Ruslan A.", city: "Караганда", elo: 1780, games: 156, blurred: true },
-                  { rank: 5, name: "Timur S.", city: "Актобе", elo: 1765, games: 201, blurred: true },
-                ].map((row, i) => (
-                  <div key={i} className={`grid grid-cols-[80px_1fr_1fr_100px_100px] text-[14px] p-4 ${row.blurred ? 'blur-[3px] select-none opacity-60' : ''}`}>
-                    <div className="font-semibold">{row.rank}</div>
-                    <div className="font-semibold">{row.name}</div>
-                    <div className="text-gray-500">{row.city}</div>
-                    <div className="font-semibold text-[#6366F1]">{row.elo}</div>
-                    <div className="text-gray-500">{row.games}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Login Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 h-[180px] bg-gradient-to-t from-white via-white/80 to-transparent flex items-end justify-center pb-8 pointer-events-auto">
-                <button 
-                  onClick={openAuthModal}
-                  className="bg-white border border-[#EBEBEA] shadow-sm px-6 py-2 rounded-full text-[13px] font-semibold text-gray-700 hover:text-black hover:border-gray-300 transition-all flex items-center gap-2"
-                >
-                  <Lock size={14} />
-                  {t.loginToSeeAll}
-                </button>
-              </div>
-            </div>
-          </section>
-
         </div>
-      </main>
+      </motion.main>
     </>
   );
 }

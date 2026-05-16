@@ -2,6 +2,7 @@ export type Player = 'white' | 'black';
 export type PieceType = 'man' | 'king';
 
 export interface Piece {
+  id: string;
   player: Player;
   type: PieceType;
 }
@@ -12,6 +13,7 @@ export interface Move {
   from: { r: number; c: number };
   to: { r: number; c: number };
   captured?: { r: number; c: number }[];
+  path?: { r: number; c: number }[];
 }
 
 export function createInitialBoard(): Board {
@@ -20,8 +22,8 @@ export function createInitialBoard(): Board {
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       if ((r + c) % 2 === 1) {
-        if (r < 3) board[r][c] = { player: 'black', type: 'man' };
-        else if (r > 4) board[r][c] = { player: 'white', type: 'man' };
+        if (r < 3) board[r][c] = { id: `piece-${r}-${c}`, player: 'black', type: 'man' };
+        else if (r > 4) board[r][c] = { id: `piece-${r}-${c}`, player: 'white', type: 'man' };
       }
     }
   }
@@ -130,9 +132,18 @@ function getCapturesForPiece(board: Board, r: number, c: number, piece: Piece, c
 
           const furtherCaptures = getCapturesForPiece(newBoard, jumpR, jumpC, piece, newCaptured);
           if (furtherCaptures.length > 0) {
-            moves.push(...furtherCaptures.map(m => ({ ...m, from: { r, c } })));
+            moves.push(...furtherCaptures.map(m => ({ 
+              ...m, 
+              from: { r, c },
+              path: [{ r: jumpR, c: jumpC }, ...(m.path || [])]
+            })));
           } else {
-            moves.push({ from: { r, c }, to: { r: jumpR, c: jumpC }, captured: newCaptured });
+            moves.push({ 
+              from: { r, c }, 
+              to: { r: jumpR, c: jumpC }, 
+              captured: newCaptured,
+              path: [{ r: jumpR, c: jumpC }]
+            });
           }
         }
       }
@@ -173,9 +184,18 @@ function getCapturesForPiece(board: Board, r: number, c: number, piece: Piece, c
 
           const furtherCaptures = getCapturesForPiece(newBoard, nr, nc, piece, newCaptured);
           if (furtherCaptures.length > 0) {
-            moves.push(...furtherCaptures.map(m => ({ ...m, from: { r, c } })));
+            moves.push(...furtherCaptures.map(m => ({ 
+              ...m, 
+              from: { r, c },
+              path: [{ r: nr, c: nc }, ...(m.path || [])]
+            })));
           } else {
-            moves.push({ from: { r, c }, to: { r: nr, c: nc }, captured: newCaptured });
+            moves.push({ 
+              from: { r, c }, 
+              to: { r: nr, c: nc }, 
+              captured: newCaptured,
+              path: [{ r: nr, c: nc }]
+            });
           }
         }
         step++;

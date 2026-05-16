@@ -4,6 +4,7 @@ create table profiles (
   username text unique not null,
   city text,
   elo int default 1200,
+  games_count int default 0,
   coins int default 100,
   streak_current int default 0,
   streak_max int default 0,

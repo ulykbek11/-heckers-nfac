@@ -8,7 +8,7 @@ import { Grid, Home, Trophy, BarChart2, History, ShoppingBag, User, Flame } from
 
 const NAV_ITEMS = [
   { id: "home", icon: Home, href: "/", locked: false },
-  { id: "leaderboard", icon: Trophy, href: "#", locked: true },
+  { id: "leaderboard", icon: Trophy, href: "/leaderboard", locked: false },
   { id: "stats", icon: BarChart2, href: "#", locked: true },
   { id: "history", icon: History, href: "#", locked: true },
   { id: "shop", icon: ShoppingBag, href: "#", locked: true },
@@ -33,7 +33,7 @@ export function Sidebar() {
         key={item.id}
         href={item.locked ? "#" : item.href}
         onClick={item.locked ? handleLockedClick : undefined}
-        className={`flex items-center justify-between px-3 py-2 rounded-[8px] text-[13px] transition-colors ${
+        className={`flex items-center justify-between px-3 py-2 rounded-[8px] text-[13px] transition-colors duration-150 ease-in-out ${
           isActive ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
         }`}
       >
