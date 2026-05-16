@@ -9,10 +9,12 @@ import { translations } from "@/lib/i18n";
 import { createInitialBoard, getValidMoves, applyMove, getBestMove, Board, Move, Player, Piece } from "@/lib/checkers";
 import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUser } from "@/hooks/useUser";
 
 function GameContent() {
   const router = useRouter();
   const { lang, openAuthModal } = useAppStore();
+  const { user } = useUser();
   const t = translations[lang].game;
   const tLanding = translations[lang].landing;
 
@@ -553,14 +555,16 @@ function GameContent() {
                 </div>
 
                 <div className="space-y-3">
-                  <button 
-                    onClick={() => {
-                      openAuthModal();
-                    }}
-                    className="w-full bg-black text-white py-3 rounded-[8px] text-[14px] font-semibold hover:bg-gray-800 transition-colors"
-                  >
-                    {t.registerAnalysis}
-                  </button>
+                  {!user && (
+                    <button 
+                      onClick={() => {
+                        openAuthModal();
+                      }}
+                      className="w-full bg-black text-white py-3 rounded-[8px] text-[14px] font-semibold hover:bg-gray-800 transition-colors"
+                    >
+                      {t.registerAnalysis}
+                    </button>
+                  )}
                   <button 
                     onClick={() => {
                       setBoard(createInitialBoard());

@@ -4,6 +4,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { X, Lock, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 export function AuthModal() {
   const { isAuthModalOpen, closeAuthModal, lang } = useAppStore();
@@ -56,12 +57,20 @@ export function AuthModal() {
         </ul>
 
         <div className="w-full space-y-3">
-          <button className="w-full bg-black text-white rounded-[8px] py-2.5 text-[14px] font-semibold hover:bg-gray-800 transition-colors">
+          <Link 
+            href="/register" 
+            onClick={closeAuthModal} 
+            className="flex items-center justify-center w-full bg-black text-white rounded-[8px] py-2.5 text-[14px] font-semibold hover:bg-gray-800 transition-colors"
+          >
             {t.register}
-          </button>
-          <button className="w-full bg-white text-black border border-[#EBEBEA] rounded-[8px] py-2.5 text-[14px] font-semibold hover:bg-gray-50 transition-colors">
+          </Link>
+          <Link 
+            href="/login" 
+            onClick={closeAuthModal} 
+            className="flex items-center justify-center w-full bg-white text-black border border-[#EBEBEA] rounded-[8px] py-2.5 text-[14px] font-semibold hover:bg-gray-50 transition-colors"
+          >
             {t.login}
-          </button>
+          </Link>
         </div>
           </motion.div>
         </motion.div>

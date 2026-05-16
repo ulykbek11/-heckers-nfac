@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Sidebar } from "@/components/Sidebar";
+import { SidebarWrapper } from "@/components/SidebarWrapper";
 import { AuthModal } from "@/components/AuthModal";
 import "./globals.css";
 
@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className="flex h-screen overflow-hidden">
-        <Sidebar />
+        <SidebarWrapper />
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
           {children}
         </div>

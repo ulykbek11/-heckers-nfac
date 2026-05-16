@@ -21,7 +21,7 @@ export default function LeaderboardPage() {
     async function fetchLeaderboard() {
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, city, elo, games_count')
+        .select('username, elo, games_count')
         .order('elo', { ascending: false })
         .limit(50);
         
@@ -59,25 +59,23 @@ export default function LeaderboardPage() {
             </div>
           ) : (
             <div className="bg-white border border-[#EBEBEA] rounded-[10px] overflow-hidden">
-              <div className="grid grid-cols-[80px_1fr_1fr_100px_100px] text-[13px] font-semibold text-gray-500 p-4 border-b border-[#EBEBEA]">
+              <div className="grid grid-cols-[80px_1fr_100px_100px] text-[13px] font-semibold text-gray-500 p-4 border-b border-[#EBEBEA]">
                 <div>{t.tableRank}</div>
                 <div>{t.tablePlayer}</div>
-                <div>{t.tableCity}</div>
                 <div>{t.tableElo}</div>
                 <div>{t.tableGames}</div>
               </div>
               
               <div className="divide-y divide-[#EBEBEA]">
                 {players.map((row, i) => (
-                  <div 
+                    <div 
                     key={i} 
-                    className="grid grid-cols-[80px_1fr_1fr_100px_100px] text-[14px] p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="grid grid-cols-[80px_1fr_100px_100px] text-[14px] p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     title="Войдите чтобы видеть профиль"
                     onClick={openAuthModal}
                   >
                     <div className="font-semibold">{i + 1}</div>
                     <div className="font-semibold">{row.username}</div>
-                    <div className="text-gray-500">{row.city || '—'}</div>
                     <div className="font-semibold text-[#6366F1]">{row.elo}</div>
                     <div className="text-gray-500">{row.games_count || 0}</div>
                   </div>

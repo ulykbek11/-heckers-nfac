@@ -1,13 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
-import { Play, Lock, Trophy } from "lucide-react";
+import { Play, Lock } from "lucide-react";
+import { useUser } from "@/hooks/useUser";
 
 const RobotIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
@@ -24,6 +24,7 @@ const GlobeIcon = () => (
 export default function Home() {
   const router = useRouter();
   const { lang, openAuthModal } = useAppStore();
+  const { user } = useUser();
   const t = translations[lang].landing;
   
   const [mode, setMode] = useState("ai");
@@ -42,9 +43,17 @@ export default function Home() {
     return t.hardAi;
   };
 
+  const handleModeSelect = (newMode: string) => {
+    if (newMode === "ai" || user) {
+      setMode(newMode);
+    } else {
+      openAuthModal();
+    }
+  };
+
   return (
     <>
-      <TopBar />
+      <TopBar titleKey="chooseMode" />
       
       <motion.main 
         className="flex-1 overflow-y-auto p-8"
@@ -53,8 +62,6 @@ export default function Home() {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <div className="max-w-[800px] mx-auto space-y-10">
-
-
           
           {/* Section 1 - Mode selector */}
           <section>
@@ -65,12 +72,12 @@ export default function Home() {
                 className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
                   mode === "ai" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
                 }`}
-                onClick={() => setMode("ai")}
+                onClick={() => handleModeSelect("ai")}
               >
                 <div className="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full">
                   {t.free}
                 </div>
-                <div className="w-14 h-14 rounded-[8px] bg-indigo-50 text-[#6366F1] flex items-center justify-center mb-4">
+                <div className={`w-14 h-14 rounded-[8px] flex items-center justify-center mb-4 ${mode === "ai" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
                   <RobotIcon />
                 </div>
                 <h3 className="text-[16px] font-semibold mb-1 mt-auto">{t.vsAi}</h3>
@@ -79,36 +86,44 @@ export default function Home() {
                 </p>
               </button>
 
-              {/* Card 2 - With Friend (Locked) */}
+              {/* Card 2 - With Friend */}
               <button 
-                className="relative p-6 bg-white rounded-[10px] border border-[#EBEBEA] text-left opacity-60 hover:opacity-80 hover:-translate-y-[2px] hover:border-gray-300 transition-all duration-200 min-h-[160px] flex flex-col"
-                onClick={openAuthModal}
+                className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
+                  mode === "friend" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
+                } ${!user ? "opacity-60" : ""}`}
+                onClick={() => handleModeSelect("friend")}
               >
-                <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Lock size={12} /> {translations[lang].sidebar.login}
-                </div>
-                <div className="w-14 h-14 rounded-[8px] bg-gray-100 text-gray-500 flex items-center justify-center mb-4">
+                {!user && (
+                  <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock size={12} /> {translations[lang].sidebar.login}
+                  </div>
+                )}
+                <div className={`w-14 h-14 rounded-[8px] flex items-center justify-center mb-4 ${mode === "friend" ? "bg-[#6366F1] text-white" : "bg-gray-100 text-gray-500"}`}>
                   <UsersIcon />
                 </div>
-                <h3 className="text-[16px] font-semibold mb-1 text-gray-600 mt-auto">{t.withFriend}</h3>
-                <p className="text-[14px] text-gray-400 leading-snug">
+                <h3 className={`text-[16px] font-semibold mb-1 mt-auto ${!user ? "text-gray-600" : ""}`}>{t.withFriend}</h3>
+                <p className={`text-[14px] leading-snug ${!user ? "text-gray-400" : "text-gray-500"}`}>
                   {t.withFriendDesc}
                 </p>
               </button>
 
-              {/* Card 3 - Multiplayer (Locked) */}
+              {/* Card 3 - Multiplayer */}
               <button 
-                className="relative p-6 bg-white rounded-[10px] border border-[#EBEBEA] text-left opacity-60 hover:opacity-80 hover:-translate-y-[2px] hover:border-gray-300 transition-all duration-200 min-h-[160px] flex flex-col"
-                onClick={openAuthModal}
+                className={`relative p-6 bg-white rounded-[10px] text-left min-h-[160px] flex flex-col hover:-translate-y-[2px] transition-all duration-200 ${
+                  mode === "multiplayer" ? "border-[1.5px] border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
+                } ${!user ? "opacity-60" : ""}`}
+                onClick={() => handleModeSelect("multiplayer")}
               >
-                <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Lock size={12} /> {translations[lang].sidebar.login}
-                </div>
-                <div className="w-14 h-14 rounded-[8px] bg-gray-100 text-gray-500 flex items-center justify-center mb-4">
+                {!user && (
+                  <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock size={12} /> {translations[lang].sidebar.login}
+                  </div>
+                )}
+                <div className={`w-14 h-14 rounded-[8px] flex items-center justify-center mb-4 ${mode === "multiplayer" ? "bg-[#6366F1] text-white" : "bg-gray-100 text-gray-500"}`}>
                   <GlobeIcon />
                 </div>
-                <h3 className="text-[16px] font-semibold mb-1 text-gray-600 mt-auto">{t.multiplayer}</h3>
-                <p className="text-[14px] text-gray-400 leading-snug">
+                <h3 className={`text-[16px] font-semibold mb-1 mt-auto ${!user ? "text-gray-600" : ""}`}>{t.multiplayer}</h3>
+                <p className={`text-[14px] leading-snug ${!user ? "text-gray-400" : "text-gray-500"}`}>
                   {t.multiplayerDesc}
                 </p>
               </button>
@@ -142,7 +157,7 @@ export default function Home() {
             </div>
 
             {/* Block 2 - Difficulty */}
-            <div>
+            <div className={mode !== "ai" ? "opacity-40 pointer-events-none" : ""}>
               <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
                 {t.difficulty}
               </h2>
@@ -175,11 +190,18 @@ export default function Home() {
               <div>
                 <h2 className="text-[18px] font-semibold mb-0.5">{t.startGame}</h2>
                 <div className="text-[14px] text-gray-400">
-                  {timer} · {getDifficultyLabel()} · {t.russianCheckers}
+                  {timer} · {mode === "ai" ? getDifficultyLabel() : (mode === "friend" ? t.withFriend : t.multiplayer)} · {t.russianCheckers}
                 </div>
               </div>
               <button 
-                onClick={() => router.push(`/game?difficulty=${encodeURIComponent(difficulty)}`)}
+                onClick={() => {
+                  if (mode === "ai") {
+                    router.push(`/game?difficulty=${encodeURIComponent(difficulty)}`);
+                  } else {
+                    // Logic for other modes
+                    alert("Этот режим скоро будет доступен!");
+                  }
+                }}
                 className="bg-white text-black px-6 py-2.5 rounded-[8px] text-[14px] font-semibold flex items-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
               >
                 <Play size={18} fill="currentColor" />
