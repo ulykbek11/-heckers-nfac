@@ -56,7 +56,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-[240px] flex-shrink-0 bg-white border-r border-[#EBEBEA] flex flex-col h-screen sticky top-0">
+    <aside className="hidden md:flex w-[240px] flex-shrink-0 bg-white border-r border-[#EBEBEA] flex-col h-screen sticky top-0">
       {/* Logo */}
       <div className="p-4 flex items-center gap-2 mb-2">
         <div className="bg-[#6366F1] text-white p-1 rounded-[6px]">
@@ -157,7 +157,6 @@ export function Sidebar() {
             </button>
           </>
         ) : (
-          /* Guest block redesigned */
           <div 
             className="flex flex-col gap-4 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={openAuthModal}

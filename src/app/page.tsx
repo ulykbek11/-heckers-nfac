@@ -49,33 +49,33 @@ export default function Home() {
       <TopBar titleKey="chooseMode" />
       
       <motion.main 
-        className="flex-1 overflow-y-auto p-8"
+        className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <div className="max-w-[800px] mx-auto space-y-10">
+        <div className="max-w-[800px] mx-auto space-y-6 md:space-y-10">
           
           {/* Section 1 - Mode selector */}
           <section>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               
               {/* Card 1 - AI */}
               <button 
-                className={`relative p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
+                className={`relative p-6 md:p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
                   mode === "ai" ? "border-2 border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
                 }`}
                 onClick={() => handleModeSelect("ai")}
               >
-                <div className={`w-14 h-14 rounded-[12px] flex items-center justify-center ${mode === "ai" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
-                  <Bot size={28} />
+                <div className={`w-12 h-12 md:w-14 md:h-14 rounded-[12px] flex items-center justify-center ${mode === "ai" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
+                  <Bot size={24} className="md:w-[28px] md:h-[28px]" />
                 </div>
-                <h3 className="text-[18px] font-bold">{t.vsAi}</h3>
+                <h3 className="text-[16px] md:text-[18px] font-bold">{t.vsAi}</h3>
               </button>
 
               {/* Card 2 - With Friend (Multiplayer) */}
               <button 
-                className={`relative p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
+                className={`relative p-6 md:p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
                   mode === "multiplayer" ? "border-2 border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
                 } ${!user ? "opacity-60" : ""}`}
                 onClick={() => handleModeSelect("multiplayer")}
@@ -85,10 +85,10 @@ export default function Home() {
                     <Lock size={12} /> {translations[lang].sidebar.login}
                   </div>
                 )}
-                <div className={`w-14 h-14 rounded-[12px] flex items-center justify-center ${mode === "multiplayer" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
-                  <Users size={28} />
+                <div className={`w-12 h-12 md:w-14 md:h-14 rounded-[12px] flex items-center justify-center ${mode === "multiplayer" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
+                  <Users size={24} className="md:w-[28px] md:h-[28px]" />
                 </div>
-                <h3 className="text-[18px] font-bold">{t.withFriend}</h3>
+                <h3 className="text-[16px] md:text-[18px] font-bold">{t.withFriend}</h3>
               </button>
 
             </div>
@@ -101,10 +101,10 @@ export default function Home() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-10"
+                className="space-y-6 md:space-y-10"
               >
                 {/* Section 2 - Game settings (AI) */}
-                <section className="grid grid-cols-2 gap-8">
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                   {/* Block 1 - Timer */}
                   <div>
                     <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
@@ -115,7 +115,7 @@ export default function Home() {
                         <button
                           key={tValue}
                           onClick={() => setTimer(tValue === "∞" ? tValue : `${tValue} ${t.min}`)}
-                          className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
+                          className={`h-[36px] md:h-[40px] px-4 md:px-5 rounded-[8px] text-[13px] md:text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
                             timer === (tValue === "∞" ? tValue : `${tValue} ${t.min}`) 
                               ? "bg-black text-white border-black" 
                               : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
@@ -140,7 +140,7 @@ export default function Home() {
                           <button
                             key={d}
                             onClick={() => setDifficulty(d)}
-                            className={`h-[40px] px-5 rounded-[8px] text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
+                            className={`h-[36px] md:h-[40px] px-4 md:px-5 rounded-[8px] text-[13px] md:text-[14px] font-semibold active:scale-95 transition-all duration-100 border ${
                               isSelected 
                                 ? difficultyColors[d]
                                 : "bg-white text-gray-700 border-[#EBEBEA] hover:bg-gray-50"
@@ -156,10 +156,10 @@ export default function Home() {
 
                 {/* Section 3 - Play CTA */}
                 <section>
-                  <div className="bg-black text-white rounded-[16px] p-[24px_32px] flex items-center justify-between shadow-xl shadow-gray-200">
-                    <div>
-                      <h2 className="text-[20px] font-bold mb-0.5">{t.startGame}</h2>
-                      <div className="text-[14px] text-gray-400">
+                  <div className="bg-black text-white rounded-[16px] p-6 md:p-[24px_32px] flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-gray-200">
+                    <div className="text-center md:text-left">
+                      <h2 className="text-[18px] md:text-[20px] font-bold mb-0.5">{t.startGame}</h2>
+                      <div className="text-[13px] md:text-[14px] text-gray-400">
                         {timer} · {getDifficultyLabel()} · {t.play}
                       </div>
                     </div>
@@ -171,7 +171,7 @@ export default function Home() {
                         params.set('timer', timer);
                         router.push(`/game?${params.toString()}`);
                       }}
-                      className="bg-white text-black px-8 py-3 rounded-[12px] text-[15px] font-bold flex items-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
+                      className="w-full md:w-auto bg-white text-black px-8 py-3 rounded-[12px] text-[15px] font-bold flex items-center justify-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
                     >
                       <Play size={20} fill="currentColor" />
                       {t.play}
@@ -185,12 +185,12 @@ export default function Home() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-8"
+                className="space-y-6 md:space-y-8"
               >
-                <div className="grid grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                   {/* Create Room Block */}
-                  <div className="bg-white p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
-                    <h3 className="text-[18px] font-bold flex items-center gap-2">
+                  <div className="bg-white p-6 md:p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
+                    <h3 className="text-[16px] md:text-[18px] font-bold flex items-center gap-2">
                       <Play className="text-indigo-600" size={20} /> {translations[lang].game.createRoom}
                     </h3>
                     
@@ -217,7 +217,6 @@ export default function Home() {
 
                     <button 
                       onClick={() => {
-                        // Logic to create room and redirect
                         const params = new URLSearchParams();
                         params.set('mode', 'multiplayer');
                         params.set('action', 'create');
@@ -231,8 +230,8 @@ export default function Home() {
                   </div>
 
                   {/* Join Room Block */}
-                  <div className="bg-white p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
-                    <h3 className="text-[18px] font-bold flex items-center gap-2">
+                  <div className="bg-white p-6 md:p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
+                    <h3 className="text-[16px] md:text-[18px] font-bold flex items-center gap-2">
                       <Globe className="text-indigo-600" size={20} /> {translations[lang].game.joinRoom}
                     </h3>
                     
@@ -245,7 +244,7 @@ export default function Home() {
                         value={roomCode}
                         onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                         placeholder="ABCDEF"
-                        className="w-full h-[48px] px-4 bg-gray-50 border border-[#EBEBEA] rounded-[10px] text-center font-mono text-[18px] tracking-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        className="w-full h-[48px] px-4 bg-gray-50 border border-[#EBEBEA] rounded-[10px] text-center font-mono text-[16px] md:text-[18px] tracking-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         maxLength={6}
                       />
                     </div>

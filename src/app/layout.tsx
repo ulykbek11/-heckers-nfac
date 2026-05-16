@@ -15,9 +15,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className="flex h-screen overflow-hidden">
+      <body className="flex flex-col md:flex-row h-screen overflow-hidden bg-[#F7F6F3]">
         <SidebarWrapper />
-        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
           {children}
         </div>
         <AuthModal />

@@ -132,9 +132,9 @@ export default function ShopPage() {
           )}
         </AnimatePresence>
 
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+        <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 pb-20 md:pb-0">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
               <ShoppingBag className="text-indigo-600" /> {t.title}
             </h1>
             <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-[#EBEBEA] shadow-sm font-bold text-amber-600">
@@ -143,12 +143,12 @@ export default function ShopPage() {
           </div>
 
           {/* Categories */}
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+          <div className="flex overflow-x-auto gap-2 p-1 bg-gray-100 rounded-xl w-full md:w-fit no-scrollbar">
             {CATEGORIES.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveTab(cat)}
-                className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all ${
+                className={`flex-1 md:flex-none px-4 md:px-6 py-2 rounded-lg text-[12px] md:text-[13px] font-bold transition-all whitespace-nowrap ${
                   activeTab === cat ? "bg-white text-black shadow-sm" : "text-gray-500 hover:text-black"
                 }`}
               >
@@ -159,17 +159,17 @@ export default function ShopPage() {
 
           {/* Items Grid */}
           {loading ? (
-            <div className="grid grid-cols-3 gap-4">
-              {[1,2,3,4,5,6].map(i => <div key={i} className="h-[240px] bg-gray-200 animate-pulse rounded-[14px]" />)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-[200px] md:h-[240px] bg-gray-200 animate-pulse rounded-[14px]" />)}
             </div>
           ) : items.length === 0 ? (
-            <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-              <p className="text-gray-500 font-medium">
+            <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300 mx-2">
+              <p className="text-gray-500 font-medium px-4">
                 {lang === 'RU' ? "Магазин пока пуст. Пожалуйста, выполните SQL-скрипт." : "Shop is empty. Please run the SQL script."}
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mx-2 md:mx-0">
               {items.filter(i => i.category === activeTab).map(item => {
                 const unlocked = isUnlocked(item);
                 const active = isActive(item.skin_key);
@@ -198,7 +198,7 @@ export default function ShopPage() {
                     {/* Name & Desc */}
                     <div className="flex flex-col">
                       <span className="text-[14px] font-medium text-[#1a1a1a]">{item.name}</span>
-                      <span className="text-[12px] text-[#aaa]">{item.description}</span>
+                      <span className="text-[12px] text-[#aaa] line-clamp-1">{item.description}</span>
                     </div>
                     
                     {/* Price & Action */}

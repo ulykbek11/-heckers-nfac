@@ -690,28 +690,23 @@ function GameContent() {
     <>
       <TopBar titleKey={mode === 'ai' ? "gameVsAi" : "chooseMode"} />
       <motion.main 
-        className="flex-1 flex overflow-hidden"
+        className="flex-1 flex flex-col lg:flex-row overflow-hidden pb-20 md:pb-0"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F6F3] p-8">
-          <div className="self-start flex items-center justify-between w-full mb-8">
+        {/* Game Area */}
+        <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F6F3] p-4 md:p-8 overflow-y-auto">
+          <div className="self-start flex items-center justify-between w-full mb-4 md:mb-8">
             <button 
               onClick={() => router.push("/")}
-              className="px-4 py-2 bg-white border border-[#EBEBEA] rounded-[8px] text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              className="px-3 py-1.5 md:px-4 md:py-2 bg-white border border-[#EBEBEA] rounded-[8px] text-[12px] md:text-[13px] font-semibold hover:bg-gray-50 transition-colors"
             >
               {t.back}
             </button>
             
-            {mode === 'multiplayer' && !room && (
-              <div className="px-6 py-2 bg-indigo-600 text-white rounded-full font-bold text-lg shadow-lg shadow-indigo-100 animate-pulse">
-                {currentPlayer === 'white' ? t.white : t.black}
-              </div>
-            )}
-
             {mode === 'multiplayer' && (
-              <div className={`px-6 py-2 rounded-full font-bold text-lg shadow-lg ${
+              <div className={`px-4 py-1.5 md:px-6 md:py-2 rounded-full font-bold text-sm md:text-lg shadow-lg ${
                 currentPlayer === (isHost ? 'white' : 'black') 
                   ? 'bg-green-500 text-white shadow-green-100' 
                   : 'bg-gray-200 text-gray-500 shadow-gray-100'
@@ -721,7 +716,8 @@ function GameContent() {
             )}
           </div>
           
-          <div className="w-[560px] h-[560px] bg-white border-[12px] border-[#D4C3A3] rounded-[8px] relative shadow-sm">
+          {/* Board Container */}
+          <div className="w-full max-w-[560px] aspect-square bg-white border-[4px] md:border-[12px] border-[#D4C3A3] rounded-[4px] md:rounded-[8px] relative shadow-sm">
             
             {/* Background Grid */}
             <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-10">
@@ -744,13 +740,13 @@ function GameContent() {
                     >
                       {isValidHop && (
                         chainState ? (
-                          <div className="absolute w-6 h-6 rounded-full border-4 border-green-500 animate-ping opacity-75 z-10" />
+                          <div className="absolute w-4 h-4 md:w-6 md:h-6 rounded-full border-2 md:border-4 border-green-500 animate-ping opacity-75 z-10" />
                         ) : (
                           <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute w-4 h-4 rounded-full bg-[#6366F1]/60 z-10" 
+                            className="absolute w-2 h-2 md:w-4 md:h-4 rounded-full bg-[#6366F1]/60 z-10" 
                           />
                         )
                       )}
@@ -760,7 +756,7 @@ function GameContent() {
               )}
             </div>
 
-            {/* Pieces */}
+            {/* Pieces Area */}
             <div className="absolute inset-0 z-20 pointer-events-none">
               {visualBoard.flatMap((row, r) => 
                 row.map((piece, c) => {
@@ -769,40 +765,48 @@ function GameContent() {
                   const isSelected = (selectedCell?.r === r && selectedCell?.c === c) || (chainState && chainState.currentSquare.r === r && chainState.currentSquare.c === c);
                   
                   return (
-                    <motion.div 
+                    <motion.div
                       key={piece.id}
-                      layoutId={piece.id}
+                      className="absolute w-[12.5%] h-[12.5%] p-1 md:p-2 flex items-center justify-center"
                       initial={false}
                       animate={{ 
-                        top: `${r * 12.5}%`, 
-                        left: `${c * 12.5}%`,
+                        x: `${c * 100}%`, 
+                        y: `${r * 100}%`,
                         scale: isCaptured ? 0 : 1,
-                        opacity: isCaptured ? 0 : 1
+                        opacity: isCaptured ? 0 : 1,
+                        zIndex: isSelected ? 40 : 20
                       }}
                       transition={{ 
-                        type: "tween", 
-                        ease: [0.25, 0.46, 0.45, 0.94], 
-                        duration: isCaptured ? 0.18 : 0.22 
+                        type: "spring", 
+                        stiffness: 300, 
+                        damping: 25,
+                        opacity: { duration: 0.2 }
                       }}
-                      className="absolute w-[12.5%] h-[12.5%] flex items-center justify-center"
                     >
-                      <div className={`w-[85%] h-[85%] rounded-full shadow-md flex items-center justify-center transition-transform
-                        ${piece.player === 'white' ? 'bg-[#FDFBF7] border-2 border-[#D4C3A3]' : 'bg-[#2A2A2A] border-2 border-[#1A1A1A]'}
-                        ${isSelected ? 'ring-4 ring-[#6366F1] scale-110' : ''}
+                      <div className={`relative w-full h-full rounded-full shadow-lg flex items-center justify-center transition-all duration-300
+                        ${piece.player === 'white' ? 'bg-[#F9F9F9]' : 'bg-[#1A1A1A]'}
+                        ${isSelected ? 'ring-4 ring-indigo-400 scale-110 shadow-indigo-200' : ''}
                       `}>
+                        {/* Piece Design */}
+                        <div className={`w-[80%] h-[80%] rounded-full border-2 md:border-4 opacity-20
+                          ${piece.player === 'white' ? 'border-black' : 'border-white'}
+                        `} />
+                        
                         {piece.type === 'king' && (
-                           <motion.div
-                             initial={{ scale: 1 }}
-                             animate={{ scale: [1, 1.15, 1] }}
-                             transition={{ duration: 0.8 }}
-                           >
-                             <Crown size={24} className={piece.player === 'white' ? 'text-[#D4C3A3]' : 'text-[#666]'} />
-                           </motion.div>
+                          <motion.div 
+                            initial={{ scale: 0 }} 
+                            animate={{ scale: 1 }}
+                            className="absolute"
+                          >
+                            <Crown size={16} className={`md:w-6 md:h-6 ${piece.player === 'white' ? 'text-amber-500' : 'text-amber-400'}`} fill="currentColor" />
+                          </motion.div>
                         )}
-                        {piece.type === 'man' && (
-                          <div className={`w-[60%] h-[60%] rounded-full border border-black/10 
-                            ${piece.player === 'white' ? 'bg-white/50' : 'bg-white/10'}`} 
-                          />
+
+                        {/* Hover/Active Indicator */}
+                        {piece.player === currentPlayer && !isSelected && (
+                          <div className={`absolute -inset-1 rounded-full border-2 border-dashed opacity-40 animate-spin-slow
+                             ${piece.player === 'white' ? 'border-indigo-600' : 'border-indigo-400'}
+                          `} />
                         )}
                       </div>
                     </motion.div>
@@ -813,29 +817,33 @@ function GameContent() {
           </div>
         </div>
 
-        <div className="w-[320px] bg-white border-l border-[#EBEBEA] flex flex-col h-full">
-          <div className="p-6 border-b border-[#EBEBEA] bg-gray-50 flex justify-between items-center">
+        {/* Side Panel (Info & History) */}
+        <div className="w-full lg:w-[320px] bg-white border-t lg:border-t-0 lg:border-l border-[#EBEBEA] flex flex-col flex-shrink-0">
+          
+          {/* Opponent Info */}
+          <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#EBEBEA]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white overflow-hidden">
-                {mode === 'ai' ? <Bot size={24} /> : (opponentProfile?.avatar_url ? <img src={opponentProfile.avatar_url} className="w-full h-full object-cover" /> : <User size={24} />)}
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-50 border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-400 overflow-hidden">
+                {mode === 'ai' ? <Bot size={20} className="md:w-6 md:h-6" /> : (opponentProfile?.avatar_url ? <img src={opponentProfile.avatar_url} className="w-full h-full object-cover" /> : <User size={20} className="md:w-6 md:h-6" />)}
               </div>
               <div>
-                <div className="font-semibold">
+                <div className="font-semibold text-sm md:text-base">
                    {mode === 'ai' ? t.black : (mode === 'multiplayer' ? (opponentProfile?.username || '...') : t.black)}
                 </div>
-                <div className="text-[12px] text-gray-500">
+                <div className="text-[10px] md:text-[12px] text-gray-500">
                   {mode === 'ai' ? (difficulty === "Сложно" ? tLanding.hard : difficulty === "Средне" ? tLanding.medium : tLanding.easy) : (opponentProfile ? `${opponentProfile.elo} ${translations[lang].topbar.elo}` : '')}
                 </div>
               </div>
             </div>
-            <div className={`flex items-center gap-1.5 font-mono text-[20px] font-semibold ${currentPlayer === 'black' ? 'text-black' : 'text-gray-400'}`}>
-              <Clock size={16} /> {formatTime(blackTime)}
+            <div className={`flex items-center gap-1 font-mono text-base md:text-[20px] font-semibold ${currentPlayer === 'black' ? 'text-black' : 'text-gray-400'}`}>
+              <Clock size={14} className="md:w-4 md:h-4" /> {formatTime(blackTime)}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col">
-            <div className="flex items-center gap-2 text-[13px] font-semibold text-gray-400 uppercase tracking-wider mb-4">
-              <HistoryIcon size={16} />
+          {/* Move History */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col max-h-[120px] lg:max-h-none">
+            <div className="flex items-center gap-2 text-[11px] md:text-[13px] font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              <HistoryIcon size={14} className="md:w-4 md:h-4" />
               {tLanding.history}
               {aiThinking && (
                 <span className="ml-2 flex gap-1">
@@ -847,9 +855,9 @@ function GameContent() {
             </div>
             
             <div className="space-y-1">
-              {Array.from({ length: Math.ceil(moveHistory.length / 2) }).map((_, i) => (
-                <div key={i} className="flex text-[14px]">
-                  <div className="w-8 text-gray-400 font-mono">{i + 1}.</div>
+              {Array.from({ length: Math.ceil(moveHistory.length / 2) }).map((_ , i) => (
+                <div key={i} className="flex text-[12px] md:text-[14px]">
+                  <div className="w-6 md:w-8 text-gray-400 font-mono">{i + 1}.</div>
                   <div className="flex-1 font-mono">{moveHistory[i * 2]}</div>
                   <div className="flex-1 font-mono text-gray-500">{moveHistory[i * 2 + 1] || ''}</div>
                 </div>
@@ -857,26 +865,27 @@ function GameContent() {
             </div>
           </div>
 
-          <div className="p-6 border-t border-[#EBEBEA] flex justify-between items-center">
+          {/* Player Info */}
+          <div className="p-4 md:p-6 border-t border-[#EBEBEA] flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-600 overflow-hidden">
-                {profile?.avatar_url ? <img src={profile.avatar_url} /> : <User size={24} />}
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-white border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-600 overflow-hidden">
+                {profile?.avatar_url ? <img src={profile.avatar_url} /> : <User size={20} className="md:w-6 md:h-6" />}
               </div>
               <div>
-                <div className="font-semibold">
+                <div className="font-semibold text-sm md:text-base">
                   {profile?.username || t.white}
                 </div>
                 {currentPlayer === (isHost || mode !== 'multiplayer' ? 'white' : 'black') && (
-                  <div className="text-[12px] text-[#6366F1] font-semibold">{t.yourTurn}</div>
+                  <div className="text-[10px] md:text-[12px] text-[#6366F1] font-semibold">{t.yourTurn}</div>
                 )}
               </div>
             </div>
-            <div className={`flex items-center gap-1.5 font-mono text-[20px] font-semibold ${currentPlayer === (isHost || mode !== 'multiplayer' ? 'white' : 'black') ? 'text-black' : 'text-gray-400'}`}>
-              <Clock size={16} /> {formatTime(isHost || mode !== 'multiplayer' ? whiteTime : blackTime)}
+            <div className={`flex items-center gap-1 font-mono text-base md:text-[20px] font-semibold ${currentPlayer === (isHost || mode !== 'multiplayer' ? 'white' : 'black') ? 'text-black' : 'text-gray-400'}`}>
+              <Clock size={14} className="md:w-4 md:h-4" /> {formatTime(isHost || mode !== 'multiplayer' ? whiteTime : blackTime)}
             </div>
           </div>
 
-          <div className="p-6 pt-0">
+          <div className="p-4 md:p-6 pt-0">
             <button 
               onClick={() => {
                 const winner = currentPlayer === 'white' ? 'black' : 'white';
@@ -884,9 +893,9 @@ function GameContent() {
                 handleGameOver(winner);
               }}
               disabled={gameStatus !== 'playing'}
-              className="w-full py-3 rounded-[8px] border border-[#EBEBEA] text-[14px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-2 md:py-3 rounded-[8px] border border-[#EBEBEA] text-[12px] md:text-[14px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Flag size={16} />
+              <Flag size={14} className="md:w-4 md:h-4" />
               {t.resign}
             </button>
           </div>

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { MobileNav } from "./MobileNav";
 
 export function SidebarWrapper() {
   const pathname = usePathname();
@@ -11,5 +12,10 @@ export function SidebarWrapper() {
     return null;
   }
   
-  return <Sidebar />;
+  return (
+    <>
+      <Sidebar />
+      <MobileNav />
+    </>
+  );
 }

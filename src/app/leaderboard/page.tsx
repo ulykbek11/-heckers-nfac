@@ -42,14 +42,14 @@ export default function LeaderboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <div className="max-w-[800px] mx-auto space-y-6">
-          <h1 className="text-[24px] font-bold">{tSidebar.leaderboard}</h1>
+        <div className="max-w-[800px] mx-auto space-y-4 md:space-y-6">
+          <h1 className="text-[20px] md:text-[24px] font-bold px-2 md:px-0">{tSidebar.leaderboard}</h1>
 
           {loading ? (
             <div className="text-gray-500 text-center py-10">Загрузка...</div>
           ) : players.length === 0 ? (
-            <div className="bg-white border border-[#EBEBEA] rounded-[10px] p-10 flex flex-col items-center justify-center text-center">
-              <h2 className="text-[18px] font-semibold mb-2">Пока никто не сыграл. Будь первым!</h2>
+            <div className="bg-white border border-[#EBEBEA] rounded-[10px] p-6 md:p-10 flex flex-col items-center justify-center text-center mx-2">
+              <h2 className="text-[16px] md:text-[18px] font-semibold mb-2">Пока никто не сыграл. Будь первым!</h2>
               <button 
                 onClick={() => router.push("/")}
                 className="mt-6 bg-black text-white px-6 py-2.5 rounded-[8px] text-[14px] font-semibold flex items-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
@@ -59,26 +59,25 @@ export default function LeaderboardPage() {
               </button>
             </div>
           ) : (
-            <div className="bg-white border border-[#EBEBEA] rounded-[10px] overflow-hidden">
-              <div className="grid grid-cols-[80px_1fr_100px_100px] text-[13px] font-semibold text-gray-500 p-4 border-b border-[#EBEBEA]">
+            <div className="bg-white border border-[#EBEBEA] rounded-[10px] overflow-hidden mx-2 shadow-sm mb-20">
+              <div className="grid grid-cols-[50px_1fr_80px] md:grid-cols-[80px_1fr_100px_100px] text-[11px] md:text-[13px] font-semibold text-gray-500 p-3 md:p-4 border-b border-[#EBEBEA]">
                 <div>{tLanding.tableRank}</div>
                 <div>{tLanding.tablePlayer}</div>
                 <div>{tLanding.tableElo}</div>
-                <div>{tLanding.tableGames}</div>
+                <div className="hidden md:block">{tLanding.tableGames}</div>
               </div>
               
               <div className="divide-y divide-[#EBEBEA]">
                 {players.map((row, i) => (
                     <div 
                     key={i} 
-                    className="grid grid-cols-[80px_1fr_100px_100px] text-[14px] p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    title="Войдите чтобы видеть профиль"
+                    className="grid grid-cols-[50px_1fr_80px] md:grid-cols-[80px_1fr_100px_100px] text-[13px] md:text-[14px] p-3 md:p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={openAuthModal}
                   >
                     <div className="font-semibold">{i + 1}</div>
-                    <div className="font-semibold">{row.username}</div>
+                    <div className="font-semibold truncate pr-2">{row.username}</div>
                     <div className="font-semibold text-[#6366F1]">{row.elo}</div>
-                    <div className="text-gray-500">{row.games_count || 0}</div>
+                    <div className="hidden md:block text-gray-500">{row.games_count || 0}</div>
                   </div>
                 ))}
               </div>

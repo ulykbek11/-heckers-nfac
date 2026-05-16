@@ -29,24 +29,24 @@ export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'
         {loading ? (
           <div className="w-24 h-8 bg-gray-100 rounded-lg animate-pulse" />
         ) : user ? (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-end">
-                <span className="text-[13px] text-gray-900 font-semibold leading-none">
-                  {profile?.username || user.user_metadata.full_name || user.email?.split('@')[0]}
-                </span>
-                <span className="text-[11px] text-indigo-500 font-medium">
-                  {profile?.elo ?? 1200} {t.elo}
-                </span>
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-[13px] text-gray-900 font-semibold leading-none">
+                    {profile?.username || user.user_metadata.full_name || user.email?.split('@')[0]}
+                  </span>
+                  <span className="text-[11px] text-indigo-500 font-medium">
+                    {profile?.elo ?? 1200} {t.elo}
+                  </span>
+                </div>
+                <div className="hidden md:block h-8 w-px bg-gray-100" />
+                <div className="flex items-center gap-1.5 px-2 py-1 md:px-2.5 bg-amber-50 rounded-full border border-amber-100">
+                  <Coins size={14} className="md:w-[16px] md:h-[16px]" color="#d4a017" />
+                  <span className="text-[12px] md:text-[13px] font-bold text-amber-700">
+                    {profile?.coins ?? 0}
+                  </span>
+                </div>
               </div>
-              <div className="h-8 w-px bg-gray-100" />
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 rounded-full border border-amber-100">
-                <Coins size={16} color="#d4a017" />
-                <span className="text-[13px] font-bold text-amber-700">
-                  {profile?.coins ?? 0}
-                </span>
-              </div>
-            </div>
             
             <button
               onClick={handleSignOut}
