@@ -1,30 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TopBar } from "@/components/TopBar";
 import { useUser } from "@/hooks/useUser";
 import { useAppStore } from "@/store/useAppStore";
+import { useDataStore } from "@/store/useDataStore";
 import { translations } from "@/lib/i18n";
 import { motion } from "framer-motion";
 import { BarChart2, Trophy, Target, TrendingUp, Coins, Hash, Flame } from "lucide-react";
+import { StatsSkeleton } from "@/components/Skeleton";
+import { createClient } from "@/lib/supabase/client";
 
 export default function StatisticsPage() {
   const { user, profile } = useUser();
-  const { lang } = useAppStore();
+  const { lang, setTopBarTitle } = useAppStore();
+  const { stats, setStats, lastFetched } = useDataStore();
   const t = translations[lang].stats;
-  const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!stats);
+
+  useEffect(() => {
+    setTopBarTitle(t.title);
+  }, [setTopBarTitle, t.title]);
 
   useEffect(() => {
     async function fetchStats() {
       if (!user) return;
+      
+      // Cache for 1 minute
+      if (stats && Date.now() - lastFetched.stats < 60000) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
         
         const { data: games, error } = await supabase
           .from("games")
-          .select("*")
+          .select("winner, coins_earned, moves, created_at")
           .eq("player_id", user.id)
           .order("created_at", { ascending: false });
 
@@ -39,7 +51,7 @@ export default function StatisticsPage() {
         // Avg moves
         const avgMoves = total > 0 ? Math.round(games.reduce((acc, g) => acc + (g.moves?.length || 0), 0) / total) : 0;
 
-        // Weekly progress (dummy for now or calculate from games)
+        // Weekly progress
         const weekly = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
         const now = new Date();
         games.forEach(g => {
@@ -61,15 +73,13 @@ export default function StatisticsPage() {
       }
     }
     fetchStats();
-  }, [user]);
+  }, [user, stats, lastFetched.stats, setStats]);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (loading && !stats) return <StatsSkeleton />;
 
   const winRate = stats?.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0;
 
   return (
-    <>
-      <TopBar />
       <motion.main 
         className="flex-1 p-8 overflow-y-auto bg-[#F7F6F3]"
         initial={{ opacity: 0, y: 10 }}
@@ -145,6 +155,5 @@ export default function StatisticsPage() {
           </div>
         </div>
       </motion.main>
-    </>
   );
 }

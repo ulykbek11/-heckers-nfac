@@ -6,6 +6,8 @@ import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { Home, Trophy, BarChart2, History, ShoppingBag, User } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const NAV_ITEMS = [
   { id: "home", icon: Home, href: "/" },
@@ -17,9 +19,18 @@ const NAV_ITEMS = [
 
 export function MobileNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { lang, openAuthModal } = useAppStore();
   const { user } = useUser();
   const t = translations[lang].sidebar;
+
+  useEffect(() => {
+    NAV_ITEMS.forEach(item => {
+      if (!item.locked || user) {
+        router.prefetch(item.href);
+      }
+    });
+  }, [router, user]);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#EBEBEA] px-2 py-1 z-50 flex items-center justify-around pb-safe">

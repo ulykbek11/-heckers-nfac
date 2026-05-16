@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { Grid, Home, Trophy, BarChart2, History, ShoppingBag, User, Flame, LogOut, Coins, Globe, Bot, Palette, Crown } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
+import { useDataStore } from "@/store/useDataStore";
 
 const NAV_ITEMS = [
   { id: "home", icon: Home, href: "/", locked: false },
@@ -27,8 +29,18 @@ export function Sidebar() {
     if (!user) openAuthModal();
   };
 
+  useEffect(() => {
+    // Eagerly prefetch all routes for instant transitions
+    NAV_ITEMS.forEach(item => {
+      if (!item.locked || user) {
+        router.prefetch(item.href);
+      }
+    });
+  }, [router, user]);
+
   const handleSignOut = async () => {
     await signOut();
+    useDataStore.getState().clearCache();
     router.push("/");
     router.refresh();
   };

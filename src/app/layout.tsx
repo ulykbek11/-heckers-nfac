@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { SidebarWrapper } from "@/components/SidebarWrapper";
+import { TopBarWrapper } from "@/components/TopBarWrapper";
 import { AuthModal } from "@/components/AuthModal";
+import { AuthProvider } from "@/components/AuthProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,11 +18,14 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className="flex flex-col md:flex-row h-screen overflow-hidden bg-[#F7F6F3]">
-        <SidebarWrapper />
-        <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-          {children}
-        </div>
-        <AuthModal />
+        <AuthProvider>
+          <SidebarWrapper />
+          <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+            <TopBarWrapper />
+            {children}
+          </div>
+          <AuthModal />
+        </AuthProvider>
       </body>
     </html>
   );

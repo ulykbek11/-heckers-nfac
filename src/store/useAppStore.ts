@@ -8,6 +8,8 @@ interface AppState {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
+  topBarTitle: string;
+  setTopBarTitle: (title: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -21,4 +23,6 @@ export const useAppStore = create<AppState>((set) => ({
   isAuthModalOpen: false,
   openAuthModal: () => set({ isAuthModalOpen: true }),
   closeAuthModal: () => set({ isAuthModalOpen: false }),
+  topBarTitle: '',
+  setTopBarTitle: (topBarTitle) => set({ topBarTitle }),
 }));

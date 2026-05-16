@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { TopBar } from "@/components/TopBar";
+
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { createInitialBoard, getValidMoves, applyMove, getBestMove, Board, Move, Player, Piece } from "@/lib/checkers";
@@ -13,7 +13,8 @@ import { useUser } from "@/hooks/useUser";
 
 function GameContent() {
   const router = useRouter();
-  const { lang, openAuthModal } = useAppStore();
+  const searchParams = useSearchParams();
+  const { lang, openAuthModal, setTopBarTitle } = useAppStore();
   const { user, profile, refreshProfile } = useUser();
   const t = translations[lang].game;
   const tLanding = translations[lang].landing;
@@ -70,7 +71,7 @@ function GameContent() {
   const [opponentProfile, setOpponentProfile] = useState<any>(null);
   const [multiplayerLoading, setMultiplayerLoading] = useState(false);
 
-  const searchParams = useSearchParams();
+
   const difficulty = searchParams.get('difficulty') || "Легко";
   const mode = searchParams.get('mode') || "ai";
   const aiDepth = difficulty === "Сложно" ? 6 : difficulty === "Средне" ? 4 : 2;
@@ -596,11 +597,13 @@ function GameContent() {
     return newBoard;
   }, [board, chainState, aiAnimState]);
 
+  useEffect(() => {
+    setTopBarTitle(mode === 'ai' ? t.gameVsAi : t.chooseMode);
+  }, [setTopBarTitle, mode, t.gameVsAi, t.chooseMode]);
+
   if (mode === 'multiplayer' && !room) {
     return (
-      <>
-        <TopBar titleKey="chooseMode" />
-        <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
+      <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
           <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl border border-[#EBEBEA] shadow-sm">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-gray-900">{t.createRoom}</h2>
@@ -640,15 +643,13 @@ function GameContent() {
             </div>
           </div>
         </main>
-      </>
+
     );
   }
 
   if (mode === 'multiplayer' && room?.status === 'waiting') {
     return (
-      <>
-        <TopBar titleKey="chooseMode" />
-        <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
+      <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
           <div className="w-full max-w-md text-center space-y-8 bg-white p-10 rounded-2xl border border-[#EBEBEA] shadow-lg">
             <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto animate-pulse">
               <Clock size={32} />
@@ -682,13 +683,12 @@ function GameContent() {
             </div>
           </div>
         </main>
-      </>
+
     );
   }
 
   return (
     <>
-      <TopBar titleKey={mode === 'ai' ? "gameVsAi" : "chooseMode"} />
       <motion.main 
         className="flex-1 flex flex-col lg:flex-row overflow-hidden pb-20 md:pb-0"
         initial={{ opacity: 0, y: 8 }}

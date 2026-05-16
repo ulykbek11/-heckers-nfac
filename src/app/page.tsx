@@ -1,9 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { TopBar } from "@/components/TopBar";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { Play, Lock, Bot, Users, Globe } from "lucide-react";
@@ -11,14 +10,19 @@ import { useUser } from "@/hooks/useUser";
 
 export default function Home() {
   const router = useRouter();
-  const { lang, openAuthModal } = useAppStore();
+  const { lang, openAuthModal, setTopBarTitle } = useAppStore();
   const { user } = useUser();
   const t = translations[lang].landing;
+  const tTopbar = translations[lang].topbar;
   
   const [mode, setMode] = useState("ai");
   const [timer, setTimer] = useState("5 мин");
   const [difficulty, setDifficulty] = useState("Легко");
   const [roomCode, setRoomCode] = useState("");
+
+  useEffect(() => {
+    setTopBarTitle(tTopbar.chooseMode);
+  }, [setTopBarTitle, tTopbar.chooseMode]);
 
   const difficultyColors: Record<string, string> = {
     "Легко": "bg-green-100 text-green-800 border-green-200",
@@ -46,8 +50,6 @@ export default function Home() {
 
   return (
     <>
-      <TopBar titleKey="chooseMode" />
-      
       <motion.main 
         className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8"
         initial={{ opacity: 0, y: 8 }}

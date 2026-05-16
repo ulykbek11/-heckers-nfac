@@ -1,22 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TopBar } from "@/components/TopBar";
 import { useUser } from "@/hooks/useUser";
 import { useAppStore } from "@/store/useAppStore";
+import { useDataStore } from "@/store/useDataStore";
 import { translations } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, Coins, Check, Lock } from "lucide-react";
+import { ShopSkeleton } from "@/components/Skeleton";
+import { createClient } from "@/lib/supabase/client";
 
 const CATEGORIES = ['pieces', 'boards', 'effects'];
 
 export default function ShopPage() {
   const { user, profile, refreshProfile } = useUser();
-  const { lang, openAuthModal } = useAppStore();
+  const { lang, openAuthModal, setTopBarTitle } = useAppStore();
+  const { shopItems, setShopItems, lastFetched } = useDataStore();
   const t = translations[lang].shop;
   const [activeTab, setActiveTab] = useState('pieces');
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!shopItems);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -26,9 +28,18 @@ export default function ShopPage() {
   };
 
   useEffect(() => {
+    setTopBarTitle(t.title);
+  }, [setTopBarTitle, t.title]);
+
+  useEffect(() => {
     async function fetchItems() {
+      // Cache for 5 minutes
+      if (shopItems && Date.now() - lastFetched.shopItems < 300000) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
         const { data, error } = await supabase
           .from("shop_items")
@@ -36,7 +47,7 @@ export default function ShopPage() {
           .order("price", { ascending: true });
 
         if (error) throw error;
-        setItems(data || []);
+        setShopItems(data || []);
       } catch (err: any) {
         console.error('Failed to fetch items:', err.message || err, err);
         showToast(lang === 'RU' ? "Ошибка загрузки товаров" : "Error loading items", 'error');
@@ -45,7 +56,7 @@ export default function ShopPage() {
       }
     }
     fetchItems();
-  }, []);
+  }, [shopItems, lastFetched.shopItems, setShopItems, lang]);
 
   const handleBuy = async (item: any) => {
     if (!user) return openAuthModal();
@@ -58,7 +69,6 @@ export default function ShopPage() {
 
     setBuyingId(item.id);
     try {
-      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       
       const newUnlocked = [...(profile.unlocked_skins || []), item.skin_key];
@@ -95,7 +105,6 @@ export default function ShopPage() {
   const handleEquip = async (skinKey: string) => {
     if (!user) return;
     try {
-      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { error } = await supabase
         .from("profiles")
@@ -108,9 +117,11 @@ export default function ShopPage() {
     }
   };
 
+  if (loading && !shopItems) return <ShopSkeleton />;
+
+  const itemsToDisplay = shopItems || [];
+
   return (
-    <>
-      <TopBar />
       <motion.main 
         className="flex-1 p-8 overflow-y-auto bg-[#F7F6F3] relative"
         initial={{ opacity: 0, y: 10 }}
@@ -158,11 +169,7 @@ export default function ShopPage() {
           </div>
 
           {/* Items Grid */}
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {[1,2,3,4,5,6].map(i => <div key={i} className="h-[200px] md:h-[240px] bg-gray-200 animate-pulse rounded-[14px]" />)}
-            </div>
-          ) : items.length === 0 ? (
+          {itemsToDisplay.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300 mx-2">
               <p className="text-gray-500 font-medium px-4">
                 {lang === 'RU' ? "Магазин пока пуст. Пожалуйста, выполните SQL-скрипт." : "Shop is empty. Please run the SQL script."}
@@ -170,7 +177,7 @@ export default function ShopPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mx-2 md:mx-0">
-              {items.filter(i => i.category === activeTab).map(item => {
+              {itemsToDisplay.filter(i => i.category === activeTab).map(item => {
                 const unlocked = isUnlocked(item);
                 const active = isActive(item.skin_key);
                 const previewColors = item.preview_colors || ["#ffffff", "#1a1a1a"];
@@ -242,6 +249,6 @@ export default function ShopPage() {
           )}
         </div>
       </motion.main>
-    </>
-  );
+    );
 }
+

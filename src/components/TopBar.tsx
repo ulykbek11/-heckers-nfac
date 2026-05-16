@@ -6,23 +6,27 @@ import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Coins, Trophy } from "lucide-react";
+import { useDataStore } from "@/store/useDataStore";
 
 export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'] }) {
-  const { lang } = useAppStore();
+  const { lang, topBarTitle } = useAppStore();
   const t = translations[lang].topbar;
   const { user, profile, loading, signOut } = useUser();
   const router = useRouter();
 
   const handleSignOut = async () => {
     await signOut();
+    useDataStore.getState().clearCache();
     router.push("/");
     router.refresh();
   };
 
+  const displayTitle = titleKey ? (t as any)[titleKey] : topBarTitle;
+
   return (
     <header className="h-[60px] bg-white border-b border-[#EBEBEA] flex items-center justify-between px-6 sticky top-0 z-10 flex-shrink-0">
       <h1 className="text-[15px] font-semibold">
-        {titleKey ? t[titleKey] : ""}
+        {displayTitle}
       </h1>
 
       <div className="flex items-center gap-4">
