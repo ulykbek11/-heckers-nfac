@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: #6366F1;
+  --color-border: #EBEBEA;
+  --color-bg-warm: #F7F6F3;
+  --color-bg-amber: #FFFBEB;
+  
+  --font-sans: system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--color-bg-warm);
+  color: #111827;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base typography constraints */
+* {
+  font-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6, .font-semibold {
+  font-weight: 600;
+}
