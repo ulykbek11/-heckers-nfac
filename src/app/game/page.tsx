@@ -465,6 +465,7 @@ function GameContent() {
 
   useEffect(() => {
     if (gameStatus !== 'playing') return;
+    if (mode === 'multiplayer' && room?.status !== 'playing') return;
 
     const timer = setInterval(() => {
       if (currentPlayer === 'white') {
@@ -487,7 +488,7 @@ function GameContent() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentPlayer, gameStatus]);
+  }, [currentPlayer, gameStatus, mode]);
 
   const animateAiMove = async (move: Move) => {
     setAiThinking(false);
@@ -533,7 +534,7 @@ function GameContent() {
           setGameStatus('white_won');
           handleGameOver('white');
         }
-      }, 500);
+      }, 1500);
       return () => clearTimeout(timeout);
     }
   }, [currentPlayer, board, gameStatus, aiDepth, mode]);
