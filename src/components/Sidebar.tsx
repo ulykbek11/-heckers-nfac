@@ -20,7 +20,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { lang, setLang, openAuthModal } = useAppStore();
+  const { lang, setLang, openAuthModal, activeGameResignFn, showConfirmModal } = useAppStore();
   const t = translations[lang].sidebar;
   const { user, profile, loading, signOut } = useUser();
 
@@ -45,6 +45,22 @@ export function Sidebar() {
     router.refresh();
   };
 
+  const handleNavigationClick = (e: React.MouseEvent, href: string) => {
+    // Check if we are in game page and a game is active
+    if (pathname === '/game' && activeGameResignFn) {
+      e.preventDefault();
+      showConfirmModal({
+        title: lang === 'RU' ? "Сдаться и выйти?" : "Resign and leave?",
+        message: lang === 'RU' ? "Вы точно хотите покинуть текущую игру? Вам будет засчитано поражение." : "Are you sure you want to leave the current game? It will count as a loss.",
+        onConfirm: async () => {
+          await activeGameResignFn();
+          router.push(href);
+        }
+      });
+      return;
+    }
+  };
+
   const renderLink = (item: { id: string; icon: React.ElementType; href: string; locked: boolean }) => {
     const isActive = pathname === item.href;
     const label = (t as any)[item.id];
@@ -54,7 +70,13 @@ export function Sidebar() {
       <Link
         key={item.id}
         href={isLocked ? "#" : item.href}
-        onClick={isLocked ? handleLockedClick : undefined}
+        onClick={(e) => {
+          if (isLocked) {
+            handleLockedClick(e);
+          } else {
+            handleNavigationClick(e, item.href);
+          }
+        }}
         className={`flex items-center justify-between px-3 py-2 rounded-[8px] text-[13px] transition-colors duration-150 ease-in-out ${
           isActive ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
         }`}

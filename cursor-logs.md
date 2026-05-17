@@ -1,5 +1,29 @@
 # Cursor Logs
 
+## [2026-05-17 12:10] - Matchmaking UX Polish and Resignation Handling
+
+**Problem/Request:**
+1. Matchmaking UI showed "Вы победили! Соперник найден" instead of just "Соперник найден".
+2. Resignation in multiplayer did not sync with the opponent.
+3. Prevent players from accidentally navigating away from the game tab during an active match without confirmation.
+
+**Files Modified:**
+- `src/lib/locales/ru.json` & `en.json` - Added `matchFound` translations.
+- `src/app/page.tsx` - Updated `MatchmakingBlock` to use the new `matchFound` translation instead of reusing `youWon`.
+- `src/app/game/page.tsx` - 
+  - Realtime subscription now explicitly sets `gameStatus` based on the opponent's resignation/win via the room `winner` state.
+  - Added `beforeunload` event listener to show a browser confirmation dialog if the user tries to close the tab or refresh during an active game.
+- `src/components/Sidebar.tsx` & `src/components/TopBar.tsx` - Added a `window.confirm` dialog when clicking navigation links or the sign-out button while on the `/game` route.
+
+**Solution Summary:**
+The UI text issue was fixed by adding a dedicated translation key. Multiplayer resignations were partially handled but the realtime listener needed to explicitly trigger `setGameStatus(finishedWinner)` when receiving the `finished` status from Supabase to update the opponent's UI. Tab navigation protection was implemented both globally (via `beforeunload`) and locally within Next.js (intercepting link clicks in Sidebar and TopBar).
+
+**Verification:**
+UI text is correct. The game correctly intercepts tab changes and closing events. Resignations update the database and broadcast to the opponent via Supabase Realtime.
+
+**Outcome:**
+✅ Success
+
 ## [2026-05-17 11:50] - Fix Next.js Image Config for External Avatars
 
 **Problem/Request:**

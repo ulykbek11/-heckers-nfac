@@ -20,7 +20,7 @@ const NAV_ITEMS = [
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { lang, openAuthModal } = useAppStore();
+  const { lang, openAuthModal, activeGameResignFn, showConfirmModal } = useAppStore();
   const { user } = useUser();
   const t = translations[lang].sidebar;
 
@@ -31,6 +31,22 @@ export function MobileNav() {
       }
     });
   }, [router, user]);
+
+  const handleNavigationClick = (e: React.MouseEvent, href: string) => {
+    // Check if we are in game page and a game is active
+    if (pathname === '/game' && activeGameResignFn) {
+      e.preventDefault();
+      showConfirmModal({
+        title: lang === 'RU' ? "Сдаться и выйти?" : "Resign and leave?",
+        message: lang === 'RU' ? "Вы точно хотите покинуть текущую игру? Вам будет засчитано поражение." : "Are you sure you want to leave the current game? It will count as a loss.",
+        onConfirm: async () => {
+          await activeGameResignFn();
+          router.push(href);
+        }
+      });
+      return;
+    }
+  };
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#EBEBEA] px-2 py-1 z-50 flex items-center justify-around pb-safe">
@@ -47,6 +63,8 @@ export function MobileNav() {
               if (isLocked) {
                 e.preventDefault();
                 openAuthModal();
+              } else {
+                handleNavigationClick(e, item.href);
               }
             }}
             className={`flex flex-col items-center gap-1 p-2 transition-colors ${

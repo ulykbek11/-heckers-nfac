@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 function GameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { lang, openAuthModal, setTopBarTitle } = useAppStore();
+  const { lang, openAuthModal, setTopBarTitle, activeGameResignFn, setActiveGameResignFn, showConfirmModal } = useAppStore();
   const { user, profile, refreshProfile } = useUser();
   const t = translations[lang].game;
   const tLanding = translations[lang].landing;
@@ -68,6 +68,8 @@ function GameContent() {
   const [lastMoveSquares, setLastMoveSquares] = useState<{from: {r:number,c:number}, to: {r:number,c:number}} | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
   
+  const [surrenderReason, setSurrenderReason] = useState<string | null>(null);
+
   // Multiplayer states
   const [room, setRoom] = useState<any>(null);
   const [isHost, setIsHost] = useState(false);
@@ -81,9 +83,25 @@ function GameContent() {
   const aiDepth = difficulty === "Сложно" ? 6 : difficulty === "Средне" ? 4 : 2;
   const isBlackPlayer = mode === 'multiplayer' && !isHost;
 
-  const handleGameOver = async (winner: Player | 'draw') => {
-    if (mode === 'multiplayer' && room) {
+  const handleGameOver = useCallback(async (winner: Player | 'draw', currentRoom?: any) => {
+    const activeRoom = currentRoom || room;
+    if (mode === 'multiplayer' && activeRoom) {
+      // If we are the ones triggering the game over (e.g. resigning, winning move)
       updateMultiplayerBoard(board, currentPlayer, winner);
+      
+      // Update ELO if it's a matchmaking game
+      if (activeRoom.timer != null && user && profile) {
+        const supabase = createClient();
+        const isWinner = winner === (isHost ? 'white' : 'black');
+        const isDraw = winner === 'draw';
+        const eloChange = isWinner ? 12 : (isDraw ? 0 : -8);
+        
+        await supabase.from('profiles').update({
+          elo: (profile.elo || 1200) + eloChange
+        }).eq('id', user.id);
+        
+        refreshProfile?.();
+      }
       return;
     }
     if (mode !== 'ai' || !user || !profile) return;
@@ -155,7 +173,7 @@ function GameContent() {
     } catch (err) {
       console.error('Error updating profile after game:', err);
     }
-  };
+  }, [board, currentPlayer, difficulty, isHost, mode, moveHistory, profile, refreshProfile, room, user]);
 
   const playSound = useCallback((type: 'select' | 'move' | 'capture') => {
     try {
@@ -195,6 +213,31 @@ function GameContent() {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (gameStatus === 'playing' && (mode === 'multiplayer' && room?.status === 'playing' || mode === 'ai')) {
+        e.preventDefault();
+        e.returnValue = ''; // Required for Chrome
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [gameStatus, mode, room]);
+
+  useEffect(() => {
+    if (gameStatus === 'playing' && ((mode === 'multiplayer' && room?.status === 'playing') || mode === 'ai')) {
+      setActiveGameResignFn(async () => {
+        const winner = (isHost || mode !== 'multiplayer' ? 'white' : 'black') === 'white' ? 'black' : 'white';
+        setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
+        setSurrenderReason(lang === 'RU' ? 'Автоматическая сдача: покинул страницу' : 'Auto-surrender: left the page');
+        await handleGameOver(winner, room);
+      });
+    } else {
+      setActiveGameResignFn(null);
+    }
+    return () => setActiveGameResignFn(null);
+  }, [gameStatus, mode, room, isHost, lang, setActiveGameResignFn]); // handleGameOver removed from deps to avoid re-renders if it changes
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -342,7 +385,26 @@ function GameContent() {
         }
 
         if (newRoom.status === 'finished') {
-          setGameStatus(newRoom.winner === 'white' ? 'white_won' : (newRoom.winner === 'black' ? 'black_won' : 'draw'));
+          const finishedWinner = newRoom.winner === 'white' ? 'white_won' : (newRoom.winner === 'black' ? 'black_won' : 'draw');
+          
+          setGameStatus(prevStatus => {
+            // Only update ELO if we haven't already processed the finish
+            if (prevStatus === 'playing' && newRoom.timer != null && user) {
+               const isWinner = newRoom.winner === (isHost ? 'white' : 'black');
+               const isDraw = newRoom.winner === 'draw';
+               const eloChange = isWinner ? 12 : (isDraw ? 0 : -8);
+               supabase.from('profiles').select('elo').eq('id', user.id).single().then(({data}: any) => {
+                  if (data) {
+                    supabase.from('profiles').update({
+                       elo: (data.elo || 1200) + eloChange
+                    }).eq('id', user.id).then(() => {
+                       refreshProfile?.();
+                    });
+                  }
+               });
+            }
+            return finishedWinner;
+          });
         }
       })
       .subscribe((status: any) => {
@@ -353,7 +415,7 @@ function GameContent() {
       console.log('[Realtime] Unsubscribing from room:', room.code);
       supabase.removeChannel(channel);
     };
-  }, [room?.id, room?.code, isHost, mode]);
+  }, [room?.id, room?.code, isHost, mode, user, refreshProfile]);
 
   const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string) => {
     if (!room || mode !== 'multiplayer') return;
@@ -418,22 +480,6 @@ function GameContent() {
     return () => clearInterval(timer);
   }, [currentPlayer, gameStatus]);
 
-  useEffect(() => {
-    if (mode === 'ai' && currentPlayer === 'black' && gameStatus === 'playing') {
-      setAiThinking(true);
-      const timeout = setTimeout(() => {
-        const bestMove = getBestMove(board, 'black', aiDepth);
-        if (bestMove) {
-          animateAiMove(bestMove);
-        } else {
-          setGameStatus('white_won');
-          handleGameOver('white');
-        }
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
-  }, [currentPlayer, board, gameStatus, aiDepth, mode]);
-
   const animateAiMove = async (move: Move) => {
     setAiThinking(false);
     setAiAnimState({ originalSquare: move.from, currentSquare: move.from });
@@ -466,6 +512,22 @@ function GameContent() {
     setCurrentPlayer('white');
     checkGameEnd(newBoard, 'white');
   };
+
+  useEffect(() => {
+    if (mode === 'ai' && currentPlayer === 'black' && gameStatus === 'playing') {
+      setTimeout(() => setAiThinking(true), 0);
+      const timeout = setTimeout(() => {
+        const bestMove = getBestMove(board, 'black', aiDepth);
+        if (bestMove) {
+          animateAiMove(bestMove);
+        } else {
+          setGameStatus('white_won');
+          handleGameOver('white');
+        }
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [currentPlayer, board, gameStatus, aiDepth, mode]);
 
   const validHops = useMemo(() => {
     if (chainState) {
@@ -817,7 +879,20 @@ function GameContent() {
         <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F6F3] p-4 md:p-8 overflow-y-auto">
           <div className="self-start flex items-center justify-between w-full mb-4 md:mb-8">
             <button 
-              onClick={() => router.push("/")}
+              onClick={() => {
+                if (activeGameResignFn) {
+                  showConfirmModal({
+                    title: lang === 'RU' ? "Сдаться и выйти?" : "Resign and leave?",
+                    message: lang === 'RU' ? "Вы точно хотите покинуть текущую игру? Вам будет засчитано поражение." : "Are you sure you want to leave the current game? It will count as a loss.",
+                    onConfirm: async () => {
+                      await activeGameResignFn();
+                      router.push("/");
+                    }
+                  });
+                } else {
+                  router.push("/");
+                }
+              }}
               className="px-3 py-1.5 md:px-4 md:py-2 bg-white border border-[#EBEBEA] rounded-[8px] text-[12px] md:text-[13px] font-semibold hover:bg-gray-50 transition-colors"
             >
               {t.back}
@@ -1008,18 +1083,18 @@ function GameContent() {
           </div>
 
           <div className="p-4 md:p-6 pt-0">
-            <button 
-              onClick={() => {
-                const winner = (isHost || mode !== 'multiplayer' ? 'white' : 'black') === 'white' ? 'black' : 'white';
-                setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
-                handleGameOver(winner);
-              }}
-              disabled={gameStatus !== 'playing'}
-              className="w-full py-2 md:py-3 rounded-[8px] border border-[#EBEBEA] text-[12px] md:text-[14px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Flag size={14} className="md:w-4 md:h-4" />
-              {t.resign}
-            </button>
+            <button
+                onClick={() => {
+                  const winner = (isHost || mode !== 'multiplayer' ? 'white' : 'black') === 'white' ? 'black' : 'white';
+                  setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
+                  handleGameOver(winner);
+                }}
+                disabled={gameStatus !== 'playing'}
+                className="w-full py-2 md:py-3 rounded-[8px] border border-[#EBEBEA] text-[12px] md:text-[14px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Flag size={14} className="md:w-4 md:h-4" />
+                {t.resign}
+              </button>
           </div>
         </div>
       </motion.main>
@@ -1041,16 +1116,21 @@ function GameContent() {
             >
               <div className="p-8 text-center border-b border-[#EBEBEA]">
                 <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4
-                  ${gameStatus === 'white_won' ? 'bg-green-100 text-green-600' : 
-                    gameStatus === 'black_won' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}
+                  ${(gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer') ? 'bg-green-100 text-green-600' : 
+                    gameStatus === 'draw' ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-600'}
                 `}>
-                  {gameStatus === 'white_won' ? <Crown size={32} /> : 
-                   gameStatus === 'black_won' ? <Flag size={32} /> : <CheckCircle2 size={32} />}
+                  {((gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer')) ? <Crown size={32} /> : 
+                   gameStatus === 'draw' ? <CheckCircle2 size={32} /> : <Flag size={32} />}
                 </div>
                 <h2 className="text-[24px] font-bold mb-2">
-                  {gameStatus === 'white_won' ? t.youWon : 
-                   gameStatus === 'black_won' ? t.aiWon : t.draw}
+                  {((gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer')) ? t.youWon : 
+                   gameStatus === 'draw' ? t.draw : (mode === 'multiplayer' ? t.opponentWon : t.aiWon)}
                 </h2>
+                {surrenderReason && (
+                  <div className="text-red-500 text-sm font-semibold mb-4 bg-red-50 p-2 rounded-lg border border-red-100">
+                    {surrenderReason}
+                  </div>
+                )}
                 <div className="flex justify-center gap-6 text-[14px] text-gray-500">
                   <div><strong className="text-black">{Math.ceil(moveHistory.length / 2)}</strong> {t.moves}</div>
                   <div><strong className="text-black">{formatTime(5 * 60 - whiteTime)}</strong> {t.time}</div>

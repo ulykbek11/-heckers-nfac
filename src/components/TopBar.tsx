@@ -9,16 +9,46 @@ import { LogOut, Coins, Trophy } from "lucide-react";
 import { useDataStore } from "@/store/useDataStore";
 
 export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'] }) {
-  const { lang, topBarTitle } = useAppStore();
+  const { lang, topBarTitle, activeGameResignFn, showConfirmModal } = useAppStore();
   const t = translations[lang].topbar;
   const { user, profile, loading, signOut } = useUser();
   const router = useRouter();
 
   const handleSignOut = async () => {
+    if (window.location.pathname === '/game' && activeGameResignFn) {
+      showConfirmModal({
+        title: lang === 'RU' ? "Сдаться и выйти?" : "Resign and leave?",
+        message: lang === 'RU' ? "Вы точно хотите покинуть текущую игру? Вам будет засчитано поражение." : "Are you sure you want to leave the current game? It will count as a loss.",
+        onConfirm: async () => {
+          await activeGameResignFn();
+          await performSignOut();
+        }
+      });
+      return;
+    }
+    await performSignOut();
+  };
+
+  const performSignOut = async () => {
     await signOut();
     useDataStore.getState().clearCache();
     router.push("/");
     router.refresh();
+  };
+
+  const handleNavigationClick = (e: React.MouseEvent, href: string) => {
+    if (window.location.pathname === '/game' && activeGameResignFn) {
+      e.preventDefault();
+      showConfirmModal({
+        title: lang === 'RU' ? "Сдаться и выйти?" : "Resign and leave?",
+        message: lang === 'RU' ? "Вы точно хотите покинуть текущую игру? Вам будет засчитано поражение." : "Are you sure you want to leave the current game? It will count as a loss.",
+        onConfirm: async () => {
+          await activeGameResignFn();
+          router.push(href);
+        }
+      });
+      return;
+    }
   };
 
   const displayTitle = titleKey ? (t as any)[titleKey] : topBarTitle;
@@ -64,12 +94,14 @@ export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'
           <div className="flex items-center gap-2">
             <Link
               href="/login"
+              onClick={(e) => handleNavigationClick(e, "/login")}
               className="px-4 py-2 rounded-[8px] text-[13px] font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
             >
               {t.login}
             </Link>
             <Link
               href="/register"
+              onClick={(e) => handleNavigationClick(e, "/register")}
               className="px-4 py-2 rounded-[8px] bg-black text-white text-[13px] font-semibold hover:bg-gray-800 transition-colors"
             >
               {t.register}

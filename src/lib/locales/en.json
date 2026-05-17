@@ -47,6 +47,9 @@
     "resign": "Resign",
     "youWon": "You won!",
     "aiWon": "AI won",
+    "opponentWon": "Opponent won",
+    "matchFound": "Match found!",
+    
     "moves": "moves",
     "time": "time",
     "captured": "captured",

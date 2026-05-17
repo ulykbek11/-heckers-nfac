@@ -11,7 +11,7 @@ import { useMatchmaking } from "@/hooks/useMatchmaking";
 import Image from "next/image";
 
 function MatchmakingBlock({ timer }: { timer: string }) {
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const { lang } = useAppStore();
   const t = translations[lang].game;
   const { isSearching, searchTime, opponentFound, opponentData, currentEloRange, startSearch, cancelSearch } = useMatchmaking();
@@ -26,7 +26,7 @@ function MatchmakingBlock({ timer }: { timer: string }) {
   if (opponentFound && opponentData) {
     return (
       <div className="flex flex-col items-center justify-center space-y-6 w-full py-8">
-        <h3 className="text-xl font-bold text-green-600">{t.youWon.replace("!", "")} {/* Placeholder for "Match Found!" if we add to dict */} Соперник найден!</h3>
+        <h3 className="text-xl font-bold text-green-600">{(t as any).matchFound || "Соперник найден!"}</h3>
         
         <div className="flex items-center justify-center gap-8 w-full max-w-md">
           {/* You */}
@@ -39,7 +39,7 @@ function MatchmakingBlock({ timer }: { timer: string }) {
               )}
             </div>
             <span className="font-semibold text-sm">{user?.user_metadata?.username || "Вы"}</span>
-            <span className="text-xs text-gray-500">ELO: {user?.elo || 1200}</span>
+            <span className="text-xs text-gray-500">ELO: {profile?.elo || 1200}</span>
           </div>
 
           <div className="text-2xl font-bold text-gray-300">VS</div>

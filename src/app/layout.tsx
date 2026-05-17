@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SidebarWrapper } from "@/components/SidebarWrapper";
 import { TopBarWrapper } from "@/components/TopBarWrapper";
 import { AuthModal } from "@/components/AuthModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { AuthProvider } from "@/components/AuthProvider";
 import "./globals.css";
 
@@ -25,6 +26,7 @@ export default function RootLayout({
             {children}
           </div>
           <AuthModal />
+          <ConfirmModal />
         </AuthProvider>
       </body>
     </html>
