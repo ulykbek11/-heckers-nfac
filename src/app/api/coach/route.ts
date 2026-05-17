@@ -1,73 +1,68 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { moves, winner, difficulty, moveCount } = await request.json();
+    const { moves, winner, difficulty, moveCount } = await req.json()
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Gemini API key is missing' }, { status: 500 });
-    }
+    // Текущий формат moveHistory: массив строк типа ["C3 - D4", "B6 x D4"]
+    const movesText = Array.isArray(moves) && moves.length > 0
+      ? typeof moves[0] === 'string'
+        ? moves.map((m: string, i: number) => `Ход ${i + 1}: ${m}`).join('\n')
+        : moves.map((m: any, i: number) =>
+            `Ход ${i + 1}: ${m.player === 'white' ? 'Игрок' : 'ИИ'} — (${m.from.row},${m.from.col}) → (${m.to.row},${m.to.col})${m.captures?.length ? ' [взятие]' : ''}`
+          ).join('\n')
+      : 'История ходов недоступна'
 
-    const movesText = Array.isArray(moves) ? moves.join(', ') : 'Нет данных о ходах';
-    const winnerText = winner === 'player' ? 'Игрок' : winner === 'opponent' ? 'ИИ' : 'Ничья';
+    const prompt = `Ты профессиональный тренер по шашкам.
+Проанализируй партию и дай конкретный разбор.
 
-    const prompt = `
-      Ты профессиональный тренер по русским шашкам. Проанализируй завершенную партию.
-      Уровень сложности ИИ: ${difficulty}.
-      Победитель: ${winnerText}.
-      Количество ходов: ${moveCount}.
-      История ходов (в формате нотации): ${movesText}.
+Уровень ИИ: ${difficulty || 'неизвестно'}
+Победитель: ${winner === 'player' || winner === 'white' ? 'Игрок (белые)' : 'ИИ (чёрные)'}
+Всего ходов: ${moveCount || 0}
 
-      Пожалуйста, предоставь разбор партии на русском языке. 
-      Ответ должен быть дружелюбным, мотивирующим и структурированным.
-      Обязательно включи:
-      1. Общая оценка игры (коротко).
-      2. Лучший момент или сильный ход.
-      3. Главная ошибка (если есть) или что можно улучшить.
-      4. Один практичный совет на будущее.
+История ходов:
+${movesText}
 
-      Не используй сложную разметку (только текст и абзацы). Будь лаконичен (не более 150-200 слов).
-    `;
+Дай анализ строго в таком формате:
+
+**Общая оценка**
+2-3 предложения об игре в целом.
+
+**Лучший момент**
+Конкретный ход или серия ходов которые были сыграны хорошо.
+
+**Главная ошибка**
+Конкретная ошибка если была, или "Ошибок не обнаружено".
+
+**Совет**
+Один конкретный совет для следующей партии.
+
+Пиши на русском языке, дружелюбно и конкретно.`
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-        }),
+          contents: [{ parts: [{ text: prompt }] }]
+        })
       }
-    );
-
-    const data = await response.json();
+    )
 
     if (!response.ok) {
-       console.error('Gemini API Error:', data);
-       throw new Error(data.error?.message || 'Failed to generate analysis');
+      const error = await response.text()
+      console.error('Gemini API error:', error)
+      return NextResponse.json({ analysis: 'Анализ временно недоступен' }, { status: 200 })
     }
 
-    const analysis = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await response.json()
+    const analysis = data.candidates?.[0]?.content?.parts?.[0]?.text
+      || 'Не удалось получить анализ'
 
-    if (!analysis) {
-       throw new Error('No analysis text found in response');
-    }
-
-    return NextResponse.json({ analysis });
-
-  } catch (error: any) {
-    console.error('Coach API Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ analysis })
+  } catch (error) {
+    console.error('Coach route error:', error)
+    return NextResponse.json({ analysis: 'Произошла ошибка при анализе' }, { status: 500 })
   }
 }

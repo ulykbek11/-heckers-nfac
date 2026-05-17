@@ -1149,25 +1149,65 @@ function GameContent() {
 
               <div className="p-8 bg-gray-50 text-center relative max-h-[300px] overflow-y-auto">
                 {user ? (
-                  isAnalyzing ? (
-                    <div className="space-y-4">
-                      <div className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-2">Анализирую партию...</div>
-                      <div className="w-full h-4 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="w-5/6 h-4 bg-gray-200 rounded animate-pulse mx-auto"></div>
-                      <div className="w-4/6 h-4 bg-gray-200 rounded animate-pulse mx-auto"></div>
-                    </div>
-                  ) : aiAnalysis ? (
-                    <div className="bg-[#f5f3ef] rounded-[12px] p-4 text-left border border-[#EBEBEA] shadow-sm">
-                      <div className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-3 flex items-center gap-2">
-                        <Bot size={14} className="text-indigo-600" /> AI Разбор партии
+                  <>
+                    {isAnalyzing && (
+                      <div style={{
+                        background: '#f5f3ef',
+                        borderRadius: 12,
+                        padding: 16,
+                        marginTop: 16,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        textAlign: 'left'
+                      }}>
+                        <div style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                          Анализирую партию...
+                        </div>
+                        {[1,2,3].map(i => (
+                          <div key={i} style={{
+                            height: 14,
+                            borderRadius: 6,
+                            background: '#e5e2dc',
+                            width: i === 3 ? '60%' : '100%',
+                            animation: 'pulse 1.5s infinite'
+                          }} />
+                        ))}
                       </div>
-                      <div className="text-[13px] md:text-[14px] text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {aiAnalysis}
+                    )}
+
+                    {!isAnalyzing && aiAnalysis && (
+                      <div style={{
+                        background: '#f5f3ef',
+                        borderRadius: 12,
+                        padding: 16,
+                        marginTop: 16,
+                        textAlign: 'left'
+                      }}>
+                        <div style={{
+                          fontSize: 11,
+                          color: '#aaa',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.8px',
+                          marginBottom: 10
+                        }}>
+                          AI Разбор партии
+                        </div>
+                        <div style={{
+                          fontSize: 14,
+                          color: '#444',
+                          lineHeight: 1.7,
+                          whiteSpace: 'pre-wrap'
+                        }}>
+                          {aiAnalysis}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-gray-500 text-sm">Разбор недоступен</div>
-                  )
+                    )}
+
+                    {!isAnalyzing && !aiAnalysis && (
+                      <div className="text-gray-500 text-sm mt-4">Разбор недоступен</div>
+                    )}
+                  </>
                 ) : (
                   <>
                     <h3 className="text-[16px] font-semibold mb-2 flex items-center justify-center gap-2">
