@@ -7,7 +7,7 @@ import { Suspense } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { createInitialBoard, getValidMoves, applyMove, getBestMove, Board, Move, Player, Piece } from "@/lib/checkers";
-import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw, Coins, Play } from "lucide-react";
+import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw, Coins, Play, Home } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
@@ -83,11 +83,11 @@ function GameContent() {
   const aiDepth = difficulty === "Сложно" ? 6 : difficulty === "Средне" ? 4 : 2;
   const isBlackPlayer = mode === 'multiplayer' && !isHost;
 
-  const handleGameOver = useCallback(async (winner: Player | 'draw', currentRoom?: any) => {
+  const handleGameOver = useCallback(async (winner: Player | 'draw', currentRoom?: any, isResign: boolean = false) => {
     const activeRoom = currentRoom || room;
     if (mode === 'multiplayer' && activeRoom) {
       // If we are the ones triggering the game over (e.g. resigning, winning move)
-      updateMultiplayerBoard(board, currentPlayer, winner);
+      updateMultiplayerBoard(board, currentPlayer, winner, isResign);
       
       // Update ELO if it's a matchmaking game
       if (activeRoom.timer != null && user && profile) {
@@ -231,13 +231,13 @@ function GameContent() {
         const winner = (isHost || mode !== 'multiplayer' ? 'white' : 'black') === 'white' ? 'black' : 'white';
         setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
         setSurrenderReason(lang === 'RU' ? 'Автоматическая сдача: покинул страницу' : 'Auto-surrender: left the page');
-        await handleGameOver(winner, room);
+        await handleGameOver(winner, room, true);
       });
     } else {
       setActiveGameResignFn(null);
     }
     return () => setActiveGameResignFn(null);
-  }, [gameStatus, mode, room, isHost, lang, setActiveGameResignFn]); // handleGameOver removed from deps to avoid re-renders if it changes
+  }, [gameStatus, mode, room, isHost, lang, setActiveGameResignFn, handleGameOver]);
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -389,19 +389,27 @@ function GameContent() {
           
           setGameStatus(prevStatus => {
             // Only update ELO if we haven't already processed the finish
-            if (prevStatus === 'playing' && newRoom.timer != null && user) {
-               const isWinner = newRoom.winner === (isHost ? 'white' : 'black');
-               const isDraw = newRoom.winner === 'draw';
-               const eloChange = isWinner ? 12 : (isDraw ? 0 : -8);
-               supabase.from('profiles').select('elo').eq('id', user.id).single().then(({data}: any) => {
-                  if (data) {
-                    supabase.from('profiles').update({
-                       elo: (data.elo || 1200) + eloChange
-                    }).eq('id', user.id).then(() => {
-                       refreshProfile?.();
-                    });
-                  }
-               });
+            if (prevStatus === 'playing') {
+               // Check if the opponent resigned (they sent 'finished' without a winning board state/move, meaning they resigned)
+               const didOpponentResign = newRoom.winner === (isHost ? 'white' : 'black') && newRoom.resign === true;
+               if (didOpponentResign) {
+                 setSurrenderReason(lang === 'RU' ? 'Ваш соперник сдался' : 'Your opponent resigned');
+               }
+
+               if (newRoom.timer != null && user) {
+                 const isWinner = newRoom.winner === (isHost ? 'white' : 'black');
+                 const isDraw = newRoom.winner === 'draw';
+                 const eloChange = isWinner ? 12 : (isDraw ? 0 : -8);
+                 supabase.from('profiles').select('elo').eq('id', user.id).single().then(({data}: any) => {
+                    if (data) {
+                      supabase.from('profiles').update({
+                         elo: (data.elo || 1200) + eloChange
+                      }).eq('id', user.id).then(() => {
+                         refreshProfile?.();
+                      });
+                    }
+                 });
+               }
             }
             return finishedWinner;
           });
@@ -415,9 +423,9 @@ function GameContent() {
       console.log('[Realtime] Unsubscribing from room:', room.code);
       supabase.removeChannel(channel);
     };
-  }, [room?.id, room?.code, isHost, mode, user, refreshProfile]);
+  }, [room?.id, room?.code, isHost, mode, user]);
 
-  const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string) => {
+  const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string, isResign?: boolean) => {
     if (!room || mode !== 'multiplayer') return;
     const supabase = createClient();
     console.log('[Multiplayer] Updating board in DB for room:', room.code, 'nextTurn:', nextTurn);
@@ -427,7 +435,8 @@ function GameContent() {
         board_state: newBoard,
         current_turn: nextTurn,
         status: winner ? 'finished' : 'playing',
-        winner: winner || null
+        winner: winner || null,
+        ...(isResign !== undefined ? { resign: isResign } : {})
       })
       .eq('id', room.id);
 
@@ -1087,7 +1096,7 @@ function GameContent() {
                 onClick={() => {
                   const winner = (isHost || mode !== 'multiplayer' ? 'white' : 'black') === 'white' ? 'black' : 'white';
                   setGameStatus(winner === 'white' ? 'white_won' : 'black_won');
-                  handleGameOver(winner);
+                  handleGameOver(winner, room, true);
                 }}
                 disabled={gameStatus !== 'playing'}
                 className="w-full py-2 md:py-3 rounded-[8px] border border-[#EBEBEA] text-[12px] md:text-[14px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
@@ -1116,14 +1125,14 @@ function GameContent() {
             >
               <div className="p-8 text-center border-b border-[#EBEBEA]">
                 <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4
-                  ${(gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer') ? 'bg-green-100 text-green-600' : 
+                  ${(gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer') || (mode === 'multiplayer' && surrenderReason === t.opponentResigned) ? 'bg-green-100 text-green-600' : 
                     gameStatus === 'draw' ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-600'}
                 `}>
-                  {((gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer')) ? <Crown size={32} /> : 
+                  {((gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer') || (mode === 'multiplayer' && surrenderReason === t.opponentResigned)) ? <Crown size={32} /> : 
                    gameStatus === 'draw' ? <CheckCircle2 size={32} /> : <Flag size={32} />}
                 </div>
                 <h2 className="text-[24px] font-bold mb-2">
-                  {((gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer')) ? t.youWon : 
+                  {((gameStatus === 'white_won' && (isHost || mode !== 'multiplayer')) || (gameStatus === 'black_won' && !isHost && mode === 'multiplayer') || (mode === 'multiplayer' && surrenderReason === t.opponentResigned)) ? t.youWon : 
                    gameStatus === 'draw' ? t.draw : (mode === 'multiplayer' ? t.opponentWon : t.aiWon)}
                 </h2>
                 {surrenderReason && (
@@ -1192,12 +1201,22 @@ function GameContent() {
                        setSelectedCell(null);
                        setValidMoves([]);
                        setAiAnalysis(null);
+                       setSurrenderReason(null);
                     }
                   }}
                   className="w-full py-3 bg-gray-100 text-gray-700 rounded-[12px] text-[14px] font-bold hover:bg-gray-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
-                  <RefreshCcw size={16} />
-                  {t.playAgain}
+                  {mode === 'multiplayer' ? (
+                    <>
+                      <Home size={16} />
+                      {lang === 'RU' ? 'На главную' : 'Home'}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcw size={16} />
+                      {t.playAgain}
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

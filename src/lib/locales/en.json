@@ -48,6 +48,7 @@
     "youWon": "You won!",
     "aiWon": "AI won",
     "opponentWon": "Opponent won",
+    "opponentResigned": "Your opponent resigned",
     "matchFound": "Match found!",
     
     "moves": "moves",
