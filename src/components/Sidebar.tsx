@@ -136,16 +136,16 @@ export function Sidebar() {
                   <Flame size={14} color="#e05c00" />
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-[#aaa]">{t.streak}</span>
                 </div>
-                <span className="text-[11px] font-bold text-[#1a1a1a]">{profile?.current_streak ?? 0} {t.days}</span>
+                <span className="text-[11px] font-bold text-[#1a1a1a]">{profile?.streak_current ?? 0} {t.days}</span>
               </div>
               <div className="w-full h-1 bg-[#f0ede8] rounded-[2px] overflow-hidden">
                 <div 
                   className="h-full bg-[#e05c00] transition-all duration-500" 
-                  style={{ width: `${Math.min(((profile?.current_streak ?? 0) % 3) / 3 * 100, 100)}%` }}
+                  style={{ width: `${Math.min(((profile?.streak_current ?? 0) % 3) / 3 * 100, 100)}%` }}
                 />
               </div>
               <div className="text-[11px] text-[#aaa] text-right">
-                {(profile?.current_streak ?? 0) % 3}/3 {t.progressToReward}
+                {(profile?.streak_current ?? 0) % 3}/3 {t.progressToReward}
               </div>
             </div>
 

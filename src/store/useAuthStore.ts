@@ -10,6 +10,9 @@ export interface Profile {
   streak_current: number;
   streak_max: number;
   last_played_at?: string | null;
+  unlocked_skins?: string[];
+  active_skin?: string;
+  avatar_url?: string | null;
 }
 
 interface AuthState {
