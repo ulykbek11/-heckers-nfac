@@ -30,6 +30,9 @@ function GameContent() {
   const [blackTime, setBlackTime] = useState(5 * 60);
   const [gameStatus, setGameStatus] = useState<'playing' | 'white_won' | 'black_won' | 'draw'>('playing');
 
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   useEffect(() => {
     const tParam = searchParams.get('timer');
     if (tParam) {
@@ -637,12 +640,42 @@ function GameContent() {
   }, [board, chainState, aiAnimState]);
 
   useEffect(() => {
+    if (gameStatus !== 'playing' && user && !aiAnalysis && !isAnalyzing && moveHistory.length > 0) {
+      const fetchAnalysis = async () => {
+        setIsAnalyzing(true);
+        try {
+          const winnerStr = gameStatus === 'white_won' ? 'player' : gameStatus === 'black_won' ? 'opponent' : 'draw';
+          const response = await fetch('/api/coach', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              moves: moveHistory,
+              winner: winnerStr,
+              difficulty: difficulty,
+              moveCount: Math.ceil(moveHistory.length / 2)
+            })
+          });
+          const data = await response.json();
+          if (data.analysis) {
+            setAiAnalysis(data.analysis);
+          }
+        } catch (err) {
+          console.error("Failed to fetch AI analysis", err);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      };
+      fetchAnalysis();
+    }
+  }, [gameStatus, user, moveHistory, difficulty, aiAnalysis, isAnalyzing]);
+
+  useEffect(() => {
     if (mode === 'multiplayer' && room?.status === 'waiting') {
       setTopBarTitle(`${translations[lang].game.roomCode}: ${room.code}`);
     } else {
       setTopBarTitle(mode === 'ai' ? t.gameVsAi : (lang === 'RU' ? 'Игра с другом' : 'Play with Friend'));
     }
-  }, [setTopBarTitle, mode, t.gameVsAi, t.chooseMode, room, lang]);
+  }, [setTopBarTitle, mode, t.gameVsAi, room, lang]);
 
   if (mode === 'multiplayer' && (multiplayerLoading || !room)) {
     return (
@@ -658,44 +691,74 @@ function GameContent() {
               </div>
             ) : (
               <>
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-gray-900">{t.createRoom}</h2>
-                  <p className="text-gray-500 mt-2">{t.waitingOpponent}</p>
+              {/* Create Room Block */}
+              <div className="bg-white p-6 md:p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
+                <h3 className="text-[16px] md:text-[18px] font-bold flex items-center gap-2">
+                  <Play className="text-indigo-600" size={20} /> {translations[lang].game.createRoom}
+                </h3>
+                
+                <div>
+                  <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                    {translations[lang].landing.timer}
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {["3", "5", "10", "∞"].map((tValue) => (
+                      <button
+                        key={tValue}
+                        onClick={() => {
+                          const url = new URL(window.location.href);
+                          url.searchParams.set('timer', tValue === "∞" ? tValue : `${tValue} мин`);
+                          router.replace(url.toString());
+                        }}
+                        className={`h-[36px] px-4 rounded-[8px] text-[13px] font-semibold transition-all border ${
+                          searchParams.get('timer') === (tValue === "∞" ? tValue : `${tValue} мин`) || (!searchParams.get('timer') && tValue === "5")
+                            ? "bg-black text-white border-black" 
+                            : "bg-gray-50 text-gray-700 border-[#EBEBEA] hover:bg-gray-100"
+                        }`}
+                      >
+                        {tValue === "∞" ? tValue : `${tValue} ${translations[lang].landing.min}`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-4">
+                <button
+                  onClick={() => createRoom(searchParams.get('timer'))}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                >
+                  <Play size={20} />
+                  {t.createRoom}
+                </button>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#F7F6F3] px-4 text-gray-400 font-semibold">{lang === 'RU' ? 'ИЛИ' : 'OR'}</span></div>
+              </div>
+
+              <div className="bg-white p-6 md:p-8 rounded-[16px] border border-[#EBEBEA] space-y-6">
+                <h3 className="text-[16px] md:text-[18px] font-bold flex items-center gap-2">
+                  <User className="text-indigo-600" size={20} /> {translations[lang].game.joinRoom}
+                </h3>
+                <div className="space-y-3">
+                  <div className="text-[11px] uppercase tracking-wider text-gray-400 font-bold ml-1">{t.enterCode}</div>
+                  <input
+                    type="text"
+                    placeholder="ABCDEF"
+                    value={inputCode}
+                    onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                    className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all uppercase font-mono text-center text-2xl tracking-[0.2em]"
+                    maxLength={6}
+                  />
                   <button
-                    onClick={() => createRoom()}
-                    className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                    onClick={() => joinRoom(inputCode)}
+                    disabled={inputCode.length < 6}
+                    className="w-full py-4 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-colors disabled:opacity-20 disabled:grayscale"
                   >
-                    <Play size={20} />
-                    {t.createRoom}
+                    {t.joinRoom}
                   </button>
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-4 text-gray-400 font-semibold">{lang === 'RU' ? 'ИЛИ' : 'OR'}</span></div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-400 font-bold ml-1">{t.enterCode}</div>
-                    <input
-                      type="text"
-                      placeholder="ABCDEF"
-                      value={inputCode}
-                      onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                      className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all uppercase font-mono text-center text-2xl tracking-[0.2em]"
-                      maxLength={6}
-                    />
-                    <button
-                      onClick={() => joinRoom(inputCode)}
-                      disabled={inputCode.length < 6}
-                      className="w-full py-4 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-colors disabled:opacity-20 disabled:grayscale"
-                    >
-                      {t.joinRoom}
-                    </button>
-                  </div>
                 </div>
+              </div>
               </>
             )}
           </div>
@@ -705,8 +768,8 @@ function GameContent() {
 
   if (mode === 'multiplayer' && room?.status === 'waiting') {
     return (
-      <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
-          <div className="w-full max-w-md text-center space-y-8 bg-white p-10 rounded-2xl border border-[#EBEBEA] shadow-lg">
+      <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-[#F7F6F3]">
+          <div className="w-full max-w-md text-center space-y-8 bg-white p-6 md:p-10 rounded-2xl border border-[#EBEBEA] shadow-lg">
             <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto animate-pulse">
               <Clock size={32} />
             </div>
@@ -714,9 +777,9 @@ function GameContent() {
               <h2 className="text-2xl font-bold text-gray-900">{t.waitingOpponent}</h2>
               <p className="text-gray-500 mt-1">{translations[lang].game.shareCode}</p>
             </div>
-            <div className="bg-indigo-50/50 p-8 rounded-2xl border-2 border-dashed border-indigo-200">
+            <div className="bg-indigo-50/50 p-6 md:p-8 rounded-2xl border-2 border-dashed border-indigo-200">
                <div className="text-[11px] uppercase tracking-[0.2em] text-indigo-400 font-bold mb-2">{translations[lang].game.roomCode}</div>
-               <span className="text-4xl font-black tracking-[0.3em] font-mono text-indigo-600">{room.code}</span>
+               <span className="text-3xl md:text-4xl font-black tracking-[0.3em] font-mono text-indigo-600">{room.code}</span>
             </div>
             
             <div className="space-y-3">
@@ -994,62 +1057,68 @@ function GameContent() {
                 </div>
               </div>
 
-              <div className="p-8 bg-gray-50 text-center relative">
+              <div className="p-8 bg-gray-50 text-center relative max-h-[300px] overflow-y-auto">
                 {user ? (
-                  <>
-                    <h3 className="text-[16px] font-semibold mb-2 flex items-center justify-center gap-2">
-                      <Bot size={18} /> AI Coach
-                    </h3>
-                    <p className="text-[13px] text-gray-500 mb-4">
-                      {gameStatus === 'white_won' ? (lang === 'RU' ? 'Отличная игра! Вы точно следовали стратегии.' : 'Great game! You followed the strategy perfectly.') : (lang === 'RU' ? 'В следующий раз попробуйте контролировать центр доски.' : 'Next time, try to control the center of the board.')}
-                    </p>
-                    
-                    {(window as any).lastReward > 0 && (
-                      <div className="mb-6 p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 font-bold text-[14px] flex items-center justify-center gap-2 animate-bounce">
-                        <Coins size={16} color="#d4a017" /> +{(window as any).lastReward} {translations[lang].topbar.coins}
+                  isAnalyzing ? (
+                    <div className="space-y-4">
+                      <div className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-2">Анализирую партию...</div>
+                      <div className="w-full h-4 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="w-5/6 h-4 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                      <div className="w-4/6 h-4 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                    </div>
+                  ) : aiAnalysis ? (
+                    <div className="bg-[#f5f3ef] rounded-[12px] p-4 text-left border border-[#EBEBEA] shadow-sm">
+                      <div className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-3 flex items-center gap-2">
+                        <Bot size={14} className="text-indigo-600" /> AI Разбор партии
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-[16px] font-semibold mb-2">{t.unlockAnalysis}</h3>
-                    <p className="text-[13px] text-gray-500 mb-6">{t.analysisSub}</p>
-
-                    <div className="relative h-[100px] mb-6 rounded-[8px] overflow-hidden border border-[#EBEBEA] bg-white">
-                      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHRleHQgeD0iMCIgeT0iMTUiIGZpbGw9IiNlN2U3ZTciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTIiPjEyLiA8L3RleHQ+PC9zdmc+')] opacity-50"></div>
-                      <div className="absolute inset-0 backdrop-blur-[4px] bg-white/60 flex items-center justify-center">
-                        <Lock className="text-gray-400" size={24} />
+                      <div className="text-[13px] md:text-[14px] text-gray-800 leading-relaxed whitespace-pre-wrap">
+                        {aiAnalysis}
                       </div>
                     </div>
-                  </>
-                )}
-
-                <div className="space-y-3">
-                  {!user && (
+                  ) : (
+                    <div className="text-gray-500 text-sm">Разбор недоступен</div>
+                  )
+                ) : (
+                  <>
+                    <h3 className="text-[16px] font-semibold mb-2 flex items-center justify-center gap-2">
+                      <Lock size={16} className="text-indigo-600" />
+                      {t.unlockAnalysis}
+                    </h3>
+                    <p className="text-[13px] text-gray-500 mb-6">
+                      {t.analysisSub}
+                    </p>
                     <button 
-                      onClick={() => {
-                        openAuthModal();
-                      }}
-                      className="w-full bg-black text-white py-3 rounded-[8px] text-[14px] font-semibold hover:bg-gray-800 transition-colors"
+                      onClick={() => openAuthModal()}
+                      className="w-full py-3 bg-black text-white rounded-[12px] text-[14px] font-bold hover:bg-gray-800 active:scale-[0.98] transition-all shadow-lg shadow-gray-200"
                     >
                       {t.registerAnalysis}
                     </button>
-                  )}
-                  <button 
-                    onClick={() => {
-                      setBoard(createInitialBoard());
-                      setCurrentPlayer('white');
-                      setGameStatus('playing');
-                      setMoveHistory([]);
-                      setWhiteTime(5 * 60);
-                      setBlackTime(5 * 60);
-                      (window as any).lastReward = 0;
-                    }}
-                    className="w-full bg-white text-black border border-[#EBEBEA] py-3 rounded-[8px] text-[14px] font-semibold hover:bg-gray-50 transition-colors"
-                  >
-                    {t.playAgain}
-                  </button>
-                </div>
+                  </>
+                )}
+              </div>
+
+              <div className="p-4 bg-white border-t border-[#EBEBEA]">
+                <button 
+                  onClick={() => {
+                    if (mode === 'multiplayer') {
+                       router.push('/');
+                    } else {
+                       setBoard(createInitialBoard());
+                       setMoveHistory([]);
+                       setWhiteTime(5 * 60);
+                       setBlackTime(5 * 60);
+                       setCurrentPlayer('white');
+                       setGameStatus('playing');
+                       setSelectedCell(null);
+                       setValidMoves([]);
+                       setAiAnalysis(null);
+                    }
+                  }}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-[12px] text-[14px] font-bold hover:bg-gray-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <RefreshCcw size={16} />
+                  {t.playAgain}
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1061,7 +1130,7 @@ function GameContent() {
 
 export default function GamePage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>}>
       <GameContent />
     </Suspense>
   );

@@ -5,8 +5,92 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
-import { Play, Lock, Bot, Users, Globe } from "lucide-react";
+import { Play, Lock, Bot, Users, Globe, Loader2, User } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
+import { useMatchmaking } from "@/hooks/useMatchmaking";
+import Image from "next/image";
+
+function MatchmakingBlock({ timer }: { timer: string }) {
+  const { user } = useUser();
+  const { lang } = useAppStore();
+  const t = translations[lang].game;
+  const { isSearching, searchTime, opponentFound, opponentData, currentEloRange, startSearch, cancelSearch } = useMatchmaking();
+
+  const handleStartSearch = () => {
+    if (!user) return;
+    const timerSeconds = parseInt(timer.split(" ")[0]) * 60;
+    // user.elo might not be immediately available from auth, prefer profile.elo if we had it, or pass what we have
+    startSearch(user.id, (user as any).elo || 1200, timerSeconds);
+  };
+
+  if (opponentFound && opponentData) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-6 w-full py-8">
+        <h3 className="text-xl font-bold text-green-600">{t.youWon.replace("!", "")} {/* Placeholder for "Match Found!" if we add to dict */} Соперник найден!</h3>
+        
+        <div className="flex items-center justify-center gap-8 w-full max-w-md">
+          {/* You */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border-2 border-indigo-500">
+              {user?.user_metadata?.avatar_url ? (
+                <Image src={user.user_metadata.avatar_url} alt="You" width={64} height={64} className="object-cover" />
+              ) : (
+                <User className="text-indigo-500 w-8 h-8" />
+              )}
+            </div>
+            <span className="font-semibold text-sm">{user?.user_metadata?.username || "Вы"}</span>
+            <span className="text-xs text-gray-500">ELO: {user?.elo || 1200}</span>
+          </div>
+
+          <div className="text-2xl font-bold text-gray-300">VS</div>
+
+          {/* Opponent */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center overflow-hidden border-2 border-red-500">
+              {opponentData.avatar_url ? (
+                <Image src={opponentData.avatar_url} alt="Opponent" width={64} height={64} className="object-cover" />
+              ) : (
+                <User className="text-red-500 w-8 h-8" />
+              )}
+            </div>
+            <span className="font-semibold text-sm">{opponentData.username}</span>
+            <span className="text-xs text-gray-500">ELO: {opponentData.elo}</span>
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-500 animate-pulse">{t.gameStartsIn} 3...</p>
+      </div>
+    );
+  }
+
+  if (isSearching) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-4 w-full py-6">
+        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        <p className="text-lg font-semibold">{t.searchingOpponent}</p>
+        <p className="text-2xl font-mono tracking-widest font-bold">
+          {Math.floor(searchTime / 60)}:{(searchTime % 60).toString().padStart(2, '0')}
+        </p>
+        <button 
+          onClick={cancelSearch}
+          className="mt-4 px-6 py-2 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+        >
+          {t.cancelSearch}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button 
+      onClick={handleStartSearch}
+      className="w-full max-w-sm py-3 bg-indigo-600 text-white rounded-[12px] font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+    >
+      <Globe size={20} />
+      {translations[lang].landing.matchmaking}
+    </button>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
@@ -62,7 +146,7 @@ export default function Home() {
           
           {/* Section 1 - Mode selector */}
           <section>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               
               {/* Card 1 - AI */}
               <button 
@@ -95,11 +179,29 @@ export default function Home() {
                 <h3 className="text-[16px] md:text-[18px] font-bold">{t.withFriend}</h3>
               </button>
 
+              {/* Card 3 - Matchmaking */}
+              <button 
+                className={`relative p-6 md:p-8 bg-white rounded-[16px] flex flex-col items-center justify-center gap-4 hover:-translate-y-[2px] transition-all duration-200 shadow-sm ${
+                  mode === "matchmaking" ? "border-2 border-[#6366F1] bg-indigo-50/10" : "border border-[#EBEBEA] hover:border-gray-300"
+                } ${!user ? "opacity-60" : ""}`}
+                onClick={() => handleModeSelect("matchmaking")}
+              >
+                {!user && (
+                  <div className="absolute top-4 right-4 bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock size={12} /> {translations[lang].sidebar.login}
+                  </div>
+                )}
+                <div className={`w-12 h-12 md:w-14 md:h-14 rounded-[12px] flex items-center justify-center ${mode === "matchmaking" ? "bg-[#6366F1] text-white" : "bg-indigo-50 text-[#6366F1]"}`}>
+                  <Globe size={24} className="md:w-[28px] md:h-[28px]" />
+                </div>
+                <h3 className="text-[16px] md:text-[18px] font-bold">{t.matchmaking}</h3>
+              </button>
+
             </div>
           </section>
 
           <AnimatePresence mode="wait">
-            {mode === 'ai' ? (
+            {mode === 'ai' && (
               <motion.div
                 key="ai-settings"
                 initial={{ opacity: 0, y: 10 }}
@@ -185,7 +287,9 @@ export default function Home() {
                   </div>
                 </section>
               </motion.div>
-            ) : (
+            )}
+            
+            {mode === 'multiplayer' && (
               <motion.div
                 key="multiplayer-settings"
                 initial={{ opacity: 0, y: 10 }}
@@ -269,6 +373,45 @@ export default function Home() {
                       {translations[lang].game.joinRoom}
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <AnimatePresence mode="wait">
+            {mode === 'matchmaking' && user && (
+              <motion.div
+                key="matchmaking-settings"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6 md:space-y-10"
+              >
+                {/* Matchmaking UI will be added here */}
+                <div className="bg-white p-6 md:p-8 rounded-[16px] border border-[#EBEBEA] space-y-6 flex flex-col items-center">
+                  <h3 className="text-[16px] md:text-[18px] font-bold">
+                    {t.matchmaking}
+                  </h3>
+                  <div className="w-full max-w-sm">
+                    <h2 className="text-[13px] uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                      {t.timer}
+                    </h2>
+                    <div className="flex flex-wrap gap-2 justify-center mb-6">
+                      {["3", "5", "10"].map((tValue) => (
+                        <button
+                          key={tValue}
+                          onClick={() => setTimer(tValue === "∞" ? tValue : `${tValue} ${t.min}`)}
+                          className={`h-[36px] px-4 rounded-[8px] text-[13px] font-semibold transition-all border ${
+                            timer === (tValue === "∞" ? tValue : `${tValue} ${t.min}`) 
+                              ? "bg-black text-white border-black" 
+                              : "bg-gray-50 text-gray-700 border-[#EBEBEA] hover:bg-gray-100"
+                          }`}
+                        >
+                          {tValue === "∞" ? tValue : `${tValue} ${t.min}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <MatchmakingBlock timer={timer} />
                 </div>
               </motion.div>
             )}
