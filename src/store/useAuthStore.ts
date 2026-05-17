@@ -7,12 +7,9 @@ export interface Profile {
   username: string;
   elo: number;
   coins: number;
-  current_streak: number;
-  longest_streak: number;
-  last_played_date?: string | null;
-  avatar_url?: string | null;
-  unlocked_skins?: string[];
-  active_skin?: string;
+  streak_current: number;
+  streak_max: number;
+  last_played_at?: string | null;
 }
 
 interface AuthState {
@@ -45,7 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching profile:', error.message || error, error);
+        console.error('Error fetching profile:', error.message, error.details, error.hint);
         throw error;
       }
 
@@ -56,18 +53,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .insert({
             id: u.id,
             username: u.user_metadata.full_name || u.email?.split('@')[0] || 'Player',
-            avatar_url: u.user_metadata.avatar_url || null,
             elo: 1200,
-            coins: 0,
-            current_streak: 0,
-            longest_streak: 0,
-            unlocked_skins: ['default']
+            coins: 100,
+            streak_current: 0,
+            streak_max: 0
           })
           .select()
           .single();
 
         if (insertError) {
-          console.error('Error creating profile:', insertError);
+          console.error('Error creating profile:', insertError.message, insertError.details, insertError.hint);
           throw insertError;
         }
         console.log('New profile created:', newProfile);

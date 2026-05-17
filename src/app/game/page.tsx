@@ -7,9 +7,10 @@ import { Suspense } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { translations } from "@/lib/i18n";
 import { createInitialBoard, getValidMoves, applyMove, getBestMove, Board, Move, Player, Piece } from "@/lib/checkers";
-import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw, Coins } from "lucide-react";
+import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, Bot, Copy, RefreshCcw, Coins, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/useUser";
+import { createClient } from "@/lib/supabase/client";
 
 function GameContent() {
   const router = useRouter();
@@ -75,6 +76,7 @@ function GameContent() {
   const difficulty = searchParams.get('difficulty') || "Легко";
   const mode = searchParams.get('mode') || "ai";
   const aiDepth = difficulty === "Сложно" ? 6 : difficulty === "Средне" ? 4 : 2;
+  const isBlackPlayer = mode === 'multiplayer' && !isHost;
 
   const handleGameOver = async (winner: Player | 'draw') => {
     if (mode === 'multiplayer' && room) {
@@ -84,7 +86,6 @@ function GameContent() {
     if (mode !== 'ai' || !user || !profile) return;
 
     try {
-      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       
       const playerWon = winner === 'white';
@@ -113,8 +114,8 @@ function GameContent() {
 
       // Update Streak
       const today = new Date().toISOString().split('T')[0];
-      const lastPlayed = profile.last_played_date;
-      let newStreak = profile.current_streak || 0;
+      const lastPlayed = profile.last_played_at;
+      let newStreak = profile.streak_current || 0;
 
       if (lastPlayed !== today) {
         const yesterday = new Date();
@@ -131,19 +132,15 @@ function GameContent() {
       const updates: any = {
         coins: (profile.coins || 0) + reward,
         elo: (profile.elo || 1200) + eloChange,
-        current_streak: newStreak,
-        last_played_date: today,
-        longest_streak: Math.max(newStreak, profile.longest_streak || 0)
+        streak_current: newStreak,
+        last_played_at: today,
+        streak_max: Math.max(newStreak, profile.streak_max || 0)
       };
 
       // Milestone rewards
       if ([3, 7, 14, 30].includes(newStreak) && lastPlayed !== today) {
-        const skinMap: Record<number, string> = { 3: 'gold', 7: 'fire', 14: 'diamond', 30: 'legend' };
         const coinMap: Record<number, number> = { 3: 0, 7: 200, 14: 500, 30: 1000 };
         updates.coins += coinMap[newStreak];
-        if (skinMap[newStreak]) {
-           updates.unlocked_skins = [...(profile.unlocked_skins || []), skinMap[newStreak]];
-        }
       }
 
       await supabase.from('profiles').update(updates).eq('id', user.id);
@@ -216,7 +213,9 @@ function GameContent() {
     setMultiplayerLoading(true);
     try {
       const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const supabase = createClient();
+      
+      console.log('Inserting room into DB...');
       const { data, error } = await supabase
         .from('game_rooms')
         .insert({
@@ -227,14 +226,24 @@ function GameContent() {
           current_turn: 'white',
           timer_setting: timerSetting || '5 мин'
         })
-        .select()
-        .single();
+        .select();
 
-      if (error) throw error;
-      setRoom(data);
+      if (error) {
+        console.error('Supabase error creating room:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        throw new Error("No data returned after room creation");
+      }
+
+      setRoom(data[0]);
       setIsHost(true);
-    } catch (err) {
+      console.log('Room created successfully:', data[0].code);
+    } catch (err: any) {
       console.error('Error creating room:', err);
+      alert(lang === 'RU' ? `Ошибка: ${err.message || "Не удалось создать комнату"}` : `Error: ${err.message || "Failed to create room"}`);
+      router.push('/');
     } finally {
       setMultiplayerLoading(false);
     }
@@ -244,34 +253,58 @@ function GameContent() {
     if (!user) return openAuthModal();
     setMultiplayerLoading(true);
     try {
-      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const supabase = createClient();
+      console.log('Searching for room code:', code);
+      
       const { data, error } = await supabase
         .from('game_rooms')
         .select('*, host_profile:profiles!host_id(*)')
-        .eq('code', code.toUpperCase())
-        .single();
+        .eq('code', code.toUpperCase());
 
-      if (error) throw error;
-      if (data.status === 'finished') {
+      if (error) {
+        console.error('Error finding room:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error(lang === 'RU' ? "Комната не найдена" : "Room not found");
+      }
+
+      const targetRoom = data[0];
+
+      if (targetRoom.status === 'finished') {
         alert(lang === 'RU' ? "Эта игра уже завершена" : "This game is already finished");
         return;
       }
 
-      const { data: updatedRoom, error: updateError } = await supabase
+      if (targetRoom.host_id === user.id) {
+         // Re-joining as host
+         setRoom(targetRoom);
+         setIsHost(true);
+         setBoard(targetRoom.board_state);
+         return;
+      }
+
+      console.log('Updating room status to playing...');
+      const { data: updatedData, error: updateError } = await supabase
         .from('game_rooms')
         .update({ guest_id: user.id, status: 'playing' })
-        .eq('id', data.id)
-        .select()
-        .single();
+        .eq('id', targetRoom.id)
+        .select();
 
       if (updateError) throw updateError;
-      setRoom(updatedRoom);
+      if (!updatedData || updatedData.length === 0) {
+        throw new Error("Failed to update room status");
+      }
+
+      setRoom(updatedData[0]);
       setIsHost(false);
-      setBoard(updatedRoom.board_state);
-      setOpponentProfile(data.host_profile);
-    } catch (err) {
+      setBoard(updatedData[0].board_state);
+      setOpponentProfile(targetRoom.host_profile);
+      console.log('Joined room as guest:', code);
+    } catch (err: any) {
       console.error('Error joining room:', err);
-      alert(lang === 'RU' ? "Комната не найдена" : "Room not found");
+      alert(err.message || (lang === 'RU' ? "Комната не найдена" : "Room not found"));
     } finally {
       setMultiplayerLoading(false);
     }
@@ -280,54 +313,50 @@ function GameContent() {
   useEffect(() => {
     if (!room || mode !== 'multiplayer') return;
 
-    const setupRealtime = async () => {
-      const supabase = (await import('@/lib/supabase/client')).createClient();
-      const channel = supabase
-        .channel(`room:${room.code}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'game_rooms',
-          filter: `id=eq.${room.id}`
-        }, async (payload: any) => {
-          const newRoom = payload.new;
-          setRoom(newRoom);
-          setBoard(newRoom.board_state);
-          setCurrentPlayer(newRoom.current_turn as Player);
-          
-          if (newRoom.status === 'playing' && !opponentProfile) {
-            const opponentId = isHost ? newRoom.guest_id : newRoom.host_id;
-            if (opponentId) {
-               const { data: prof } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
-               setOpponentProfile(prof);
-            }
+    const supabase = createClient();
+    console.log('[Realtime] Subscribing to room:', room.code);
+
+    const channel = supabase
+      .channel(`room:${room.code}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'game_rooms',
+        filter: `id=eq.${room.id}`
+      }, async (payload: any) => {
+        console.log('[Realtime] Update received for room:', payload);
+        const newRoom = payload.new;
+        setRoom(newRoom);
+        setBoard(newRoom.board_state);
+        setCurrentPlayer(newRoom.current_turn as Player);
+        
+        if (newRoom.status === 'playing') {
+          const opponentId = isHost ? newRoom.guest_id : newRoom.host_id;
+          if (opponentId) {
+             const { data: prof } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
+             if (prof) setOpponentProfile(prof);
           }
+        }
 
-          if (newRoom.status === 'finished') {
-            setGameStatus(newRoom.winner === 'white' ? 'white_won' : (newRoom.winner === 'black' ? 'black_won' : 'draw'));
-          }
-        })
-        .subscribe();
-
-      return channel;
-    };
-
-    let channel: any;
-    setupRealtime().then(c => channel = c);
+        if (newRoom.status === 'finished') {
+          setGameStatus(newRoom.winner === 'white' ? 'white_won' : (newRoom.winner === 'black' ? 'black_won' : 'draw'));
+        }
+      })
+      .subscribe((status) => {
+        console.log(`[Realtime] Subscription status for room ${room.code}:`, status);
+      });
 
     return () => {
-      if (channel) {
-        import('@/lib/supabase/client').then(({ createClient }) => {
-          createClient().removeChannel(channel);
-        });
-      }
+      console.log('[Realtime] Unsubscribing from room:', room.code);
+      supabase.removeChannel(channel);
     };
-  }, [room, isHost, opponentProfile, mode]);
+  }, [room?.id, room?.code, isHost, mode]);
 
   const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string) => {
     if (!room || mode !== 'multiplayer') return;
-    const supabase = (await import('@/lib/supabase/client')).createClient();
-    await supabase
+    const supabase = createClient();
+    console.log('[Multiplayer] Updating board in DB for room:', room.code, 'nextTurn:', nextTurn);
+    const { error } = await supabase
       .from('game_rooms')
       .update({
         board_state: newBoard,
@@ -336,6 +365,12 @@ function GameContent() {
         winner: winner || null
       })
       .eq('id', room.id);
+
+    if (error) {
+      console.error('[Multiplayer] Error updating board in DB:', error.message, '| Details:', error.details, '| Hint:', error.hint, '| Code:', error.code);
+    } else {
+      console.log('[Multiplayer] Board updated successfully in DB');
+    }
   };
 
   const checkGameEnd = useCallback((currentBoard: Board, nextPlayer: Player) => {
@@ -609,49 +644,62 @@ function GameContent() {
     }
   }, [setTopBarTitle, mode, t.gameVsAi, t.chooseMode, room, lang]);
 
-  if (mode === 'multiplayer' && !room) {
+  if (mode === 'multiplayer' && (multiplayerLoading || !room)) {
     return (
       <main className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F7F6F3]">
-          <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl border border-[#EBEBEA] shadow-sm">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900">{t.createRoom}</h2>
-              <p className="text-gray-500 mt-2">{t.waitingOpponent}</p>
-            </div>
-
-            <div className="space-y-4">
-              <button
-                onClick={() => createRoom()}
-                disabled={multiplayerLoading}
-                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-50"
-              >
-                {multiplayerLoading ? "..." : t.createRoom}
-              </button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400">ИЛИ</span></div>
+          <div className="w-full max-w-md space-y-8 bg-white p-8 md:p-10 rounded-2xl border border-[#EBEBEA] shadow-lg">
+            {multiplayerLoading ? (
+              <div className="text-center space-y-6 py-10">
+                <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{lang === 'RU' ? 'Подключение...' : 'Connecting...'}</h2>
+                  <p className="text-gray-500 mt-2">{lang === 'RU' ? 'Пожалуйста, подождите' : 'Please wait'}</p>
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-900">{t.createRoom}</h2>
+                  <p className="text-gray-500 mt-2">{t.waitingOpponent}</p>
+                </div>
 
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder={t.enterCode}
-                  value={inputCode}
-                  onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all uppercase font-mono text-center text-lg"
-                />
-                <button
-                  onClick={() => joinRoom(inputCode)}
-                  disabled={multiplayerLoading || inputCode.length < 6}
-                  className="w-full py-3 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  {t.joinRoom}
-                </button>
-              </div>
-            </div>
+                <div className="space-y-4">
+                  <button
+                    onClick={() => createRoom()}
+                    className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                  >
+                    <Play size={20} />
+                    {t.createRoom}
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-4 text-gray-400 font-semibold">{lang === 'RU' ? 'ИЛИ' : 'OR'}</span></div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-[11px] uppercase tracking-wider text-gray-400 font-bold ml-1">{t.enterCode}</div>
+                    <input
+                      type="text"
+                      placeholder="ABCDEF"
+                      value={inputCode}
+                      onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                      className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all uppercase font-mono text-center text-2xl tracking-[0.2em]"
+                      maxLength={6}
+                    />
+                    <button
+                      onClick={() => joinRoom(inputCode)}
+                      disabled={inputCode.length < 6}
+                      className="w-full py-4 bg-black text-white rounded-xl font-bold hover:bg-gray-800 transition-colors disabled:opacity-20 disabled:grayscale"
+                    >
+                      {t.joinRoom}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </main>
-
     );
   }
 
@@ -691,7 +739,6 @@ function GameContent() {
             </div>
           </div>
         </main>
-
     );
   }
 
@@ -725,7 +772,10 @@ function GameContent() {
           </div>
           
           {/* Board Container */}
-          <div className="w-full max-w-[560px] aspect-square bg-white border-[4px] md:border-[12px] border-[#D4C3A3] rounded-[4px] md:rounded-[8px] relative shadow-sm">
+          <div 
+            className="w-full max-w-[560px] aspect-square bg-white border-[4px] md:border-[12px] border-[#D4C3A3] rounded-[4px] md:rounded-[8px] relative shadow-sm transition-transform duration-500"
+            style={{ transform: isBlackPlayer ? 'rotate(180deg)' : 'none' }}
+          >
             
             {/* Background Grid */}
             <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-10">
@@ -782,7 +832,8 @@ function GameContent() {
                         y: `${r * 100}%`,
                         scale: isCaptured ? 0 : 1,
                         opacity: isCaptured ? 0 : 1,
-                        zIndex: isSelected ? 40 : 20
+                        zIndex: isSelected ? 40 : 20,
+                        rotate: isBlackPlayer ? 180 : 0
                       }}
                       transition={{ 
                         type: "spring", 
@@ -832,7 +883,7 @@ function GameContent() {
           <div className="p-4 md:p-6 flex items-center justify-between border-b border-[#EBEBEA]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-50 border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-400 overflow-hidden">
-                {mode === 'ai' ? <Bot size={20} className="md:w-6 md:h-6" /> : (opponentProfile?.avatar_url ? <img src={opponentProfile.avatar_url} className="w-full h-full object-cover" /> : <User size={20} className="md:w-6 md:h-6" />)}
+                {mode === 'ai' ? <Bot size={20} className="md:w-6 md:h-6" /> : <User size={20} className="md:w-6 md:h-6" />}
               </div>
               <div>
                 <div className="font-semibold text-sm md:text-base">
@@ -877,7 +928,7 @@ function GameContent() {
           <div className="p-4 md:p-6 border-t border-[#EBEBEA] flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-white border border-[#EBEBEA] rounded-full flex items-center justify-center text-gray-600 overflow-hidden">
-                {profile?.avatar_url ? <img src={profile.avatar_url} /> : <User size={20} className="md:w-6 md:h-6" />}
+                <User size={20} className="md:w-6 md:h-6" />
               </div>
               <div>
                 <div className="font-semibold text-sm md:text-base">

@@ -37,12 +37,14 @@ export default function Home() {
   };
 
   const handleModeSelect = (newMode: string) => {
+    console.log('Mode selected:', newMode);
     if (newMode === "ai") {
       setMode(newMode);
     } else {
       if (user) {
         setMode(newMode);
       } else {
+        console.log('User not logged in, opening auth modal');
         openAuthModal();
       }
     }
@@ -166,14 +168,16 @@ export default function Home() {
                       </div>
                     </div>
                     <button 
+                      type="button"
                       onClick={() => {
+                        console.log('Navigating to AI game...', { difficulty, timer });
                         const params = new URLSearchParams();
                         params.set('mode', 'ai');
                         params.set('difficulty', difficulty);
                         params.set('timer', timer);
                         router.push(`/game?${params.toString()}`);
                       }}
-                      className="w-full md:w-auto bg-white text-black px-8 py-3 rounded-[12px] text-[15px] font-bold flex items-center justify-center gap-2 hover:brightness-110 hover:scale-[1.02] transition-all duration-150"
+                      className="w-full md:w-auto bg-white text-black px-8 py-3 rounded-[12px] text-[15px] font-bold flex items-center justify-center gap-2 hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 shadow-lg cursor-pointer"
                     >
                       <Play size={20} fill="currentColor" />
                       {t.play}
@@ -218,14 +222,16 @@ export default function Home() {
                     </div>
 
                     <button 
+                      type="button"
                       onClick={() => {
+                        console.log('Creating room...', { timer });
                         const params = new URLSearchParams();
                         params.set('mode', 'multiplayer');
                         params.set('action', 'create');
                         params.set('timer', timer);
                         router.push(`/game?${params.toString()}`);
                       }}
-                      className="w-full py-3 bg-indigo-600 text-white rounded-[12px] font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-indigo-600 text-white rounded-[12px] font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {translations[lang].game.createRoom}
                     </button>

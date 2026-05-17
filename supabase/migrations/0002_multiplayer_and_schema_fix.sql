@@ -35,7 +35,7 @@ create policy "Authenticated users can create rooms"
 
 create policy "Players can update their rooms" 
   on public.game_rooms for update 
-  using (auth.uid() = host_id or auth.uid() = guest_id);
+  using (auth.uid() = host_id or auth.uid() = guest_id or (status = 'waiting' and guest_id is null));
 
 -- Enable Realtime for game_rooms
 begin;

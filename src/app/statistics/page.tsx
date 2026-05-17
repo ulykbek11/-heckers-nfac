@@ -134,7 +134,7 @@ export default function StatisticsPage() {
               <div className="bg-white p-4 md:p-6 rounded-2xl border border-[#EBEBEA] shadow-sm">
                 <div className="flex items-center gap-3 mb-1">
                    <Flame size={18} className="text-orange-500" />
-                   <div className="text-xl md:text-2xl font-bold">{profile?.longest_streak ?? 0}</div>
+                   <div className="text-xl md:text-2xl font-bold">{profile?.streak_max ?? 0}</div>
                 </div>
                 <div className="text-[10px] md:text-[12px] text-gray-500 uppercase tracking-wider font-medium">{t.bestStreak}</div>
               </div>
