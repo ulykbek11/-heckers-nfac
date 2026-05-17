@@ -342,7 +342,7 @@ function GameContent() {
           setGameStatus(newRoom.winner === 'white' ? 'white_won' : (newRoom.winner === 'black' ? 'black_won' : 'draw'));
         }
       })
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log(`[Realtime] Subscription status for room ${room.code}:`, status);
       });
 
