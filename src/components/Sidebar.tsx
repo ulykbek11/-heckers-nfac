@@ -8,6 +8,8 @@ import { translations } from "@/lib/i18n";
 import { Grid, Home, Trophy, BarChart2, History, ShoppingBag, User, Flame, LogOut, Coins, Globe, Bot, Palette, Crown } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useDataStore } from "@/store/useDataStore";
+import { StreakModal } from "@/components/StreakModal";
+import { useState } from "react";
 
 const NAV_ITEMS = [
   { id: "home", icon: Home, href: "/", locked: false },
@@ -23,6 +25,7 @@ export function Sidebar() {
   const { lang, setLang, openAuthModal, activeGameResignFn, showConfirmModal } = useAppStore();
   const t = translations[lang].sidebar;
   const { user, profile, loading, signOut } = useUser();
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
 
   const handleLockedClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -152,7 +155,10 @@ export function Sidebar() {
             <div className="h-px bg-[#f0ede8]" />
 
             {/* Streak Progress */}
-            <div className="flex flex-col gap-2">
+            <button 
+              onClick={() => setIsStreakModalOpen(true)}
+              className="flex flex-col gap-2 hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors text-left"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-[#1a1a1a]">
                   <Flame size={14} color="#e05c00" />
@@ -166,10 +172,10 @@ export function Sidebar() {
                   style={{ width: `${Math.min(((profile?.streak_current ?? 0) % 3) / 3 * 100, 100)}%` }}
                 />
               </div>
-              <div className="text-[11px] text-[#aaa] text-right">
+              <div className="text-[11px] text-[#aaa] text-right w-full">
                 {(profile?.streak_current ?? 0) % 3}/3 {t.progressToReward}
               </div>
-            </div>
+            </button>
 
             <div className="h-px bg-[#f0ede8]" />
 
@@ -210,6 +216,7 @@ export function Sidebar() {
           </div>
         )}
       </div>
+      <StreakModal isOpen={isStreakModalOpen} onClose={() => setIsStreakModalOpen(false)} />
     </aside>
   );
 }

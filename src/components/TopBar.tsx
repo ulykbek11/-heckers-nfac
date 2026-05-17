@@ -5,14 +5,17 @@ import { translations, TranslationType } from "@/lib/i18n";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Coins, Trophy } from "lucide-react";
+import { LogOut, Coins, Trophy, Flame } from "lucide-react";
 import { useDataStore } from "@/store/useDataStore";
+import { useState } from "react";
+import { StreakModal } from "@/components/StreakModal";
 
 export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'] }) {
   const { lang, topBarTitle, activeGameResignFn, showConfirmModal } = useAppStore();
   const t = translations[lang].topbar;
   const { user, profile, loading, signOut } = useUser();
   const router = useRouter();
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
 
   const handleSignOut = async () => {
     if (window.location.pathname === '/game' && activeGameResignFn) {
@@ -74,6 +77,15 @@ export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'
                   </span>
                 </div>
                 <div className="hidden md:block h-8 w-px bg-gray-100" />
+                <button
+                  onClick={() => setIsStreakModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2 py-1 md:px-2.5 bg-orange-50 rounded-full border border-orange-100 transition-colors hover:bg-orange-100"
+                >
+                  <Flame size={14} className="md:w-[16px] md:h-[16px]" color="#ea580c" />
+                  <span className="text-[12px] md:text-[13px] font-bold text-orange-700">
+                    {profile?.streak_current ?? 0}
+                  </span>
+                </button>
                 <div className="flex items-center gap-1.5 px-2 py-1 md:px-2.5 bg-amber-50 rounded-full border border-amber-100">
                   <Coins size={14} className="md:w-[16px] md:h-[16px]" color="#d4a017" />
                   <span className="text-[12px] md:text-[13px] font-bold text-amber-700">
@@ -109,6 +121,7 @@ export function TopBar({ titleKey }: { titleKey?: keyof TranslationType['topbar'
           </div>
         )}
       </div>
+      <StreakModal isOpen={isStreakModalOpen} onClose={() => setIsStreakModalOpen(false)} />
     </header>
   );
 }

@@ -11,12 +11,14 @@ import { Clock, History as HistoryIcon, Flag, Crown, CheckCircle2, Lock, User, B
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
+import { useDataStore } from "@/store/useDataStore";
 
 function GameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { lang, openAuthModal, setTopBarTitle, activeGameResignFn, setActiveGameResignFn, showConfirmModal } = useAppStore();
   const { user, profile, refreshProfile } = useUser();
+  const { shopItems, setShopItems, lastFetched } = useDataStore();
   const t = translations[lang].game;
   const tLanding = translations[lang].landing;
 
@@ -240,6 +242,18 @@ function GameContent() {
   }, [gameStatus, mode, room, isHost, lang, setActiveGameResignFn, handleGameOver]);
 
   useEffect(() => {
+    async function fetchItems() {
+      if (shopItems && Date.now() - lastFetched.shopItems < 300000) return;
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.from("shop_items").select("*");
+        if (!error && data) setShopItems(data);
+      } catch (err) {}
+    }
+    fetchItems();
+  }, [shopItems, lastFetched.shopItems, setShopItems]);
+
+  useEffect(() => {
     const action = searchParams.get('action');
     const code = searchParams.get('code');
     const tParam = searchParams.get('timer');
@@ -261,13 +275,19 @@ function GameContent() {
       const code = Math.random().toString(36).slice(2, 8).toUpperCase();
       const supabase = createClient();
       
+      let initTime = 5 * 60;
+      if (timerSetting) {
+        if (timerSetting === '∞') initTime = 999 * 60;
+        else initTime = parseInt(timerSetting) * 60;
+      }
+      
       console.log('Inserting room into DB...');
       const { data, error } = await supabase
         .from('game_rooms')
         .insert({
           code,
           host_id: user.id,
-          board_state: board,
+          board_state: { board: board, lastMove: null, history: [], whiteTime: initTime, blackTime: initTime },
           status: 'waiting',
           current_turn: 'white',
           timer_setting: timerSetting || '5 мин'
@@ -345,7 +365,16 @@ function GameContent() {
 
       setRoom(updatedData[0]);
       setIsHost(false);
-      setBoard(updatedData[0].board_state);
+      const bs = updatedData[0].board_state;
+      if (Array.isArray(bs)) {
+        setBoard(bs);
+      } else {
+        setBoard(bs.board);
+        if (bs.lastMove) setLastMoveSquares(bs.lastMove);
+        if (bs.history) setMoveHistory(bs.history);
+        if (bs.whiteTime !== undefined) setWhiteTime(bs.whiteTime);
+        if (bs.blackTime !== undefined) setBlackTime(bs.blackTime);
+      }
       setOpponentProfile(targetRoom.host_profile);
       console.log('Joined room as guest:', code);
     } catch (err: any) {
@@ -373,7 +402,16 @@ function GameContent() {
         console.log('[Realtime] Update received for room:', payload);
         const newRoom = payload.new;
         setRoom(newRoom);
-        setBoard(newRoom.board_state);
+        const bs = newRoom.board_state;
+        if (Array.isArray(bs)) {
+          setBoard(bs);
+        } else {
+          setBoard(bs.board);
+          if (bs.lastMove) setLastMoveSquares(bs.lastMove);
+          if (bs.history) setMoveHistory(bs.history);
+          if (bs.whiteTime !== undefined) setWhiteTime(bs.whiteTime);
+          if (bs.blackTime !== undefined) setBlackTime(bs.blackTime);
+        }
         setCurrentPlayer(newRoom.current_turn as Player);
         
         if (newRoom.status === 'playing') {
@@ -425,14 +463,23 @@ function GameContent() {
     };
   }, [room?.id, room?.code, isHost, mode, user]);
 
-  const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string, isResign?: boolean) => {
+  const updateMultiplayerBoard = async (newBoard: Board, nextTurn: Player, winner?: string, isResign?: boolean, newHistory?: string[], newLastMove?: any) => {
     if (!room || mode !== 'multiplayer') return;
     const supabase = createClient();
     console.log('[Multiplayer] Updating board in DB for room:', room.code, 'nextTurn:', nextTurn);
+    
+    const payload = {
+      board: newBoard,
+      lastMove: newLastMove !== undefined ? newLastMove : lastMoveSquares,
+      history: newHistory !== undefined ? newHistory : moveHistory,
+      whiteTime: whiteTime,
+      blackTime: blackTime
+    };
+
     const { error } = await supabase
       .from('game_rooms')
       .update({
-        board_state: newBoard,
+        board_state: payload,
         current_turn: nextTurn,
         status: winner ? 'finished' : 'playing',
         winner: winner || null,
@@ -595,16 +642,18 @@ function GameContent() {
         if (completedMove) {
            setTimeout(() => {
              const newBoard = applyMove(board, completedMove);
+             const newHistory = [...moveHistory, formatMove(completedMove)];
+             const newLastMove = { from: completedMove.from, to: completedMove.to };
              setBoard(newBoard);
-             setMoveHistory(prev => [...prev, formatMove(completedMove)]);
-             setLastMoveSquares({ from: completedMove.from, to: completedMove.to });
+             setMoveHistory(newHistory);
+             setLastMoveSquares(newLastMove);
              setChainState(null);
              setCapturedIds([]);
              const nextP = currentPlayer === 'white' ? 'black' : 'white';
              setCurrentPlayer(nextP);
              
              if (mode === 'multiplayer') {
-               updateMultiplayerBoard(newBoard, nextP);
+               updateMultiplayerBoard(newBoard, nextP, undefined, undefined, newHistory, newLastMove);
              }
              
              checkGameEnd(newBoard, nextP);
@@ -669,16 +718,18 @@ function GameContent() {
          if (matchedMoves.length === 1 && (!move.path || move.path.length === 1)) {
             setTimeout(() => {
               const newBoard = applyMove(board, move);
+              const newHistory = [...moveHistory, formatMove(move)];
+              const newLastMove = { from: move.from, to: move.to };
               setBoard(newBoard);
-              setMoveHistory(prev => [...prev, formatMove(move)]);
-              setLastMoveSquares({ from: move.from, to: move.to });
+              setMoveHistory(newHistory);
+              setLastMoveSquares(newLastMove);
               setChainState(null);
               setCapturedIds([]);
               const nextP = currentPlayer === 'white' ? 'black' : 'white';
               setCurrentPlayer(nextP);
               
               if (mode === 'multiplayer') {
-                updateMultiplayerBoard(newBoard, nextP);
+                updateMultiplayerBoard(newBoard, nextP, undefined, undefined, newHistory, newLastMove);
               }
               
               checkGameEnd(newBoard, nextP);
@@ -880,7 +931,7 @@ function GameContent() {
   return (
     <>
       <motion.main 
-        className="flex-1 flex flex-col lg:flex-row overflow-hidden pb-20 md:pb-0"
+        className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden pb-20 md:pb-0"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
@@ -921,8 +972,13 @@ function GameContent() {
           
           {/* Board Container */}
           <div 
-            className="w-full max-w-[560px] aspect-square bg-white border-[4px] md:border-[12px] border-[#D4C3A3] rounded-[4px] md:rounded-[8px] relative shadow-sm transition-transform duration-500"
-            style={{ transform: isBlackPlayer ? 'rotate(180deg)' : 'none' }}
+            className="w-full max-w-[560px] aspect-square border-[4px] md:border-[12px] border-[#D4C3A3] rounded-[4px] md:rounded-[8px] relative shadow-sm transition-transform duration-500"
+            style={{ 
+              transform: isBlackPlayer ? 'rotate(180deg)' : 'none',
+              backgroundColor: shopItems?.find((i: any) => i.skin_key === profile?.active_skin)?.category === 'boards' 
+                ? (shopItems?.find((i: any) => i.skin_key === profile?.active_skin)?.preview_colors?.[1] || '#8B7355')
+                : '#8B7355'
+            }}
           >
             
             {/* Background Grid */}
@@ -934,15 +990,21 @@ function GameContent() {
                   const isFlash = flashSquare?.r === r && flashSquare?.c === c;
                   const isLastMove = lastMoveSquares && ((lastMoveSquares.from.r === r && lastMoveSquares.from.c === c) || (lastMoveSquares.to.r === r && lastMoveSquares.to.c === c));
                   
+                  // Board skin logic
+                  const activeSkinItem = shopItems?.find((i: any) => i.skin_key === profile?.active_skin);
+                  const isBoardSkin = activeSkinItem?.category === 'boards';
+                  const darkColor = isBoardSkin ? (activeSkinItem?.preview_colors?.[1] || '#8B7355') : '#8B7355';
+                  const lightColor = isBoardSkin ? (activeSkinItem?.preview_colors?.[0] || '#E3D5C1') : '#E3D5C1';
+
                   return (
                     <div 
                       key={`bg-${r}-${c}`}
                       onClick={() => handleCellClick(r, c)}
                       className={`relative flex items-center justify-center cursor-pointer transition-colors duration-150
-                        ${isDark ? 'bg-[#8B7355]' : 'bg-[#E3D5C1]'}
                         ${isFlash ? 'bg-red-400' : ''}
                         ${isLastMove ? 'after:absolute after:inset-0 after:bg-indigo-400/30' : ''}
                       `}
+                      style={{ backgroundColor: isDark ? darkColor : lightColor }}
                     >
                       {isValidHop && (
                         chainState ? (
@@ -970,6 +1032,9 @@ function GameContent() {
                   const isCaptured = capturedIds.includes(piece.id);
                   const isSelected = (selectedCell?.r === r && selectedCell?.c === c) || (chainState && chainState.currentSquare.r === r && chainState.currentSquare.c === c);
                   
+                  const activeSkinItem = shopItems?.find((i: any) => i.skin_key === profile?.active_skin);
+                  const isPieceSkin = activeSkinItem?.category === 'pieces';
+                  
                   return (
                     <motion.div
                       key={piece.id}
@@ -991,13 +1056,14 @@ function GameContent() {
                       }}
                     >
                       <div className={`relative w-full h-full rounded-full shadow-lg flex items-center justify-center transition-all duration-300
-                        ${piece.player === 'white' ? 'bg-[#F9F9F9]' : 'bg-[#1A1A1A]'}
                         ${isSelected ? 'ring-4 ring-indigo-400 scale-110 shadow-indigo-200' : ''}
-                      `}>
+                      `} style={{
+                        backgroundColor: piece.player === 'white' 
+                          ? (isPieceSkin ? (activeSkinItem?.preview_colors?.[0] || '#F9F9F9') : '#F9F9F9')
+                          : (isPieceSkin ? (activeSkinItem?.preview_colors?.[1] || '#1A1A1A') : '#1A1A1A')
+                      }}>
                         {/* Piece Design */}
-                        <div className={`w-[80%] h-[80%] rounded-full border-2 md:border-4 opacity-20
-                          ${piece.player === 'white' ? 'border-black' : 'border-white'}
-                        `} />
+                        <div className="w-[80%] h-[80%] rounded-full border-2 md:border-4 opacity-20 border-black" />
                         
                         {piece.type === 'king' && (
                           <motion.div 

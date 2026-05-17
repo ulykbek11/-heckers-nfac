@@ -1,0 +1,1 @@
+alter table public.game_rooms add column if not exists last_move jsonb; alter table public.game_rooms add column if not exists move_history jsonb default '[]'::jsonb;
