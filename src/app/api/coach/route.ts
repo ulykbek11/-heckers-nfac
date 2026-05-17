@@ -53,7 +53,7 @@ ${movesText}
     if (!response.ok) {
       const error = await response.text()
       console.error('Gemini API error:', error)
-      return NextResponse.json({ analysis: 'Анализ временно недоступен' }, { status: 200 })
+      return NextResponse.json({ analysis: `Ошибка API: ${error}` }, { status: 200 })
     }
 
     const data = await response.json()
@@ -61,8 +61,8 @@ ${movesText}
       || 'Не удалось получить анализ'
 
     return NextResponse.json({ analysis })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Coach route error:', error)
-    return NextResponse.json({ analysis: 'Произошла ошибка при анализе' }, { status: 500 })
+    return NextResponse.json({ analysis: `Внутренняя ошибка: ${error.message}` }, { status: 500 })
   }
 }
